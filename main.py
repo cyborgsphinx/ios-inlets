@@ -41,7 +41,7 @@ def main():
         with open(PICKLE_NAME, mode="rb") as f:
             saanich = pickle.load(f)
     else:
-        with open("inlets2.json") as f:
+        with open("inlets.json") as f:
             contents = json.load(f)["features"][0]
         poly = Polygon(contents["geometry"]["coordinates"][0])
         saanich = inlets.Inlet(contents["properties"]["name"], poly, contents["properties"]["boundaries"])
