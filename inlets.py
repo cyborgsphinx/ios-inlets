@@ -76,6 +76,8 @@ class Inlet(object):
         self.temperatures[category].append([time, temperature])
 
     def add_temperatures(self, times, depths, temperatures):
+        if len(times) != len(depths):
+            logging.warning("times and depths are of different lengths")
         for t, d, t_c in zip(times, depths, temperatures):
             if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(t_c):
                 continue
@@ -93,8 +95,12 @@ class Inlet(object):
         # BOT/1930-031-0001.bot.nc and CTD/1966-062-0129.ctd.nc used as example
         if (temps := find_any(data, ["TEMPRTN1", "TEMPST01"])) is not None:
             depth = get_array(data.depth)
-            time = get_scalar(data.time)
-            self.add_temperatures_constant_time(time, depth, temps)
+            if data.time.size == 1:
+                time = get_scalar(data.time)
+                self.add_temperatures_constant_time(time, depth, temps)
+            else:
+                time = get_array(data.time)
+                self.add_temperatures(time, depth, temps)
         # ADCP/nep1_20060512_20060525_0095m.adcp.L1.nc and CUR/CM1_19890407_19890504_0020m.cur.nc used as example
         elif (temps := find_any(data, ["TEMPPR01", "TEMPPR03"])) is not None:
             time = get_array(data.time)

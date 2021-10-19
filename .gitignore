@@ -1,7 +1,7 @@
 data/
 notebooks/
 .ipynb_checkpoints/
-__pychache__/
+**/__pychache__/
 
 *.png
 *.pickle
