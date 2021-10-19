@@ -1,0 +1,6 @@
+data/
+notebooks/
+.ipynb_checkpoints/
+__pychache__/
+
+*.png
