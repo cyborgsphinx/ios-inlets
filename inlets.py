@@ -48,6 +48,7 @@ class Inlet(object):
             "middle": [],
             "deep": [],
         }
+        self.stations = {}
         self.polygon = polygon
 
     def contains(self, data):
@@ -91,7 +92,7 @@ class Inlet(object):
 
     def add_temperature_data_from(self, data):
         if not hasattr(data, "depth"):
-            logging.warning(f"data from {data.filename.item()} has no depth information, discarding")
+            logging.info(f"data from {data.filename.item()} has no depth information, discarding")
             return
         # find values in specific depth intervals
         # will be plotted against time
@@ -132,4 +133,22 @@ class Inlet(object):
                 file_name = get_scalar(name) if name is not None else "unknown file"
                 logging.warning(f"{file_name} has unknown temperature variable")
 
-    # TODO: add methods to gather salinity and oxidization data
+    def add_salinity_data_from(self, data):
+        # TODO: do
+        pass
+
+    def add_oxygen_data_from(self, data):
+        # TODO: do
+        pass
+
+    def add_station_from(self, data):
+        year = get_datetime(data.time.head(1).item()).year
+        if year not in self.stations:
+            self.stations[year] = set()
+        self.stations[year].add(get_scalar(data.filename))
+
+    def add_data_from(self, data):
+        self.add_temperature_data_from(data)
+        self.add_salinity_data_from(data)
+        self.add_oxygen_data_from(data)
+        self.add_station_from(data)

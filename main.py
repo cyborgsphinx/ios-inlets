@@ -28,6 +28,19 @@ def chart_temperatures(inlet):
     plt.legend()
     plt.title(f"{inlet.name} Deep Water Temperatures")
 
+def chart_stations(inlet):
+    plt.clf()
+    data = []
+    for year, stations in inlet.stations.items():
+        if year > 2000:
+            continue
+        data.extend([year for _ in range(len(stations))])
+    n_bins = max(data) - min(data) + 1
+    plt.hist(data, bins=n_bins, align="left", label=f"Number of files {len(data)}")
+    plt.ylabel("Number of Stations")
+    plt.legend()
+    plt.title(f"{inlet.name} Sampling History")
+
 def normalize(string):
     return string.strip().lower().replace(' ', '-')
 
@@ -58,12 +71,10 @@ def main():
                     if inlet.contains(data):
                         #print("...", item)
                         try:
-                            inlet.add_temperature_data_from(data)
+                            inlet.add_data_from(data)
                         except:
                             logging.exception(f"Exception occurred in {file_name}")
                             raise
-                    #elif normalize(data["geographic_area"].item()) in ["saanich-inlet", "satellite-channel", "cowichan-bay"]:
-                    #    logging.warning(f"{file_name} claims to be in saanich inlet, but its location is outside the polygon")
         with open(PICKLE_NAME, mode="wb") as f:
             pickle.dump(inlet_s, f)
     for inlet in inlet_s:
@@ -71,7 +82,12 @@ def main():
         if args.show_figure:
             plt.show()
         else:
-            plt.savefig(f"{normalize(inlet.name)}-temperature.png")
+            plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-temperature.png"))
+        chart_stations(inlet)
+        if args.show_figure:
+            plt.show()
+        else:
+            plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-stations.png"))
 
 if __name__ == "__main__":
     main()
