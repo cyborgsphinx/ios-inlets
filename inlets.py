@@ -90,6 +90,9 @@ class Inlet(object):
         self.add_temperatures(times, [depth for _ in range(len(times))], temperatures)
 
     def add_temperature_data_from(self, data):
+        if not hasattr(data, "depth"):
+            logging.warning(f"data from {data.filename.item()} has no depth information, discarding")
+            return
         # find values in specific depth intervals
         # will be plotted against time
         # BOT/1930-031-0001.bot.nc and CTD/1966-062-0129.ctd.nc used as example
