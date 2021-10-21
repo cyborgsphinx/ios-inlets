@@ -73,27 +73,31 @@ class Inlet(object):
         elif self.is_deep(depth):
             category = "deep"
         else:
-            return
+            return False
         self.temperatures[category].append([time, temperature])
+        return True
 
     def add_temperatures(self, times, depths, temperatures):
         if len(times) != len(depths):
             logging.warning("times and depths are of different lengths")
+        used = False
         for t, d, t_c in zip(times, depths, temperatures):
             if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(t_c):
                 continue
-            self.add_temperature(get_datetime(t), d, t_c)
+            if self.add_temperature(get_datetime(t), d, t_c):
+                used = True
+        return used
 
     def add_temperatures_constant_time(self, time, depths, temperatures):
-        self.add_temperatures([time for _ in range(len(depths))], depths, temperatures)
+        return self.add_temperatures([time for _ in range(len(depths))], depths, temperatures)
 
     def add_temperatures_constant_depth(self, times, depth, temperatures):
-        self.add_temperatures(times, [depth for _ in range(len(times))], temperatures)
+        return self.add_temperatures(times, [depth for _ in range(len(times))], temperatures)
 
     def add_temperature_data_from(self, data):
         if not hasattr(data, "depth"):
             logging.info(f"data from {data.filename.item()} has no depth information, discarding")
-            return
+            return False
         # find values in specific depth intervals
         # will be plotted against time
         # BOT/1930-031-0001.bot.nc and CTD/1966-062-0129.ctd.nc used as example
@@ -101,20 +105,20 @@ class Inlet(object):
             depth = get_array(data.depth)
             if data.time.size == 1:
                 time = get_scalar(data.time)
-                self.add_temperatures_constant_time(time, depth, temps)
+                return self.add_temperatures_constant_time(time, depth, temps)
             else:
                 time = get_array(data.time)
-                self.add_temperatures(time, depth, temps)
+                return self.add_temperatures(time, depth, temps)
         # ADCP/nep1_20060512_20060525_0095m.adcp.L1.nc and CUR/CM1_19890407_19890504_0020m.cur.nc used as example
         elif (temps := find_any(data, ["TEMPPR01", "TEMPPR03"])) is not None:
             time = get_array(data.time)
             if hasattr(data, "PPSAADCP"):
                 # treat like ADCP/nep1_20060512_20060525_0095m.adcp.L1.nc
                 depth = get_array(data.PPSAADCP)
-                self.add_temperatures(time, depth, temps)
+                return self.add_temperatures(time, depth, temps)
             elif hasattr(data, "instrument_depth"):
                 # treat like CUR/CM1_19890407_19890504_0020m.cur.nc
-                self.add_temperatures_constant_depth(time, data.instrument_depth.item(), temps)
+                return self.add_temperatures_constant_depth(time, data.instrument_depth.item(), temps)
             else:
                 name = getattr(data, "filename", None)
                 file_name = get_scalar(name) if name is not None else "unknown file"
@@ -123,7 +127,7 @@ class Inlet(object):
         elif (temps := find_any(data, ["TEMPS901", "TEMPS601"])) is not None:
             depth = get_array(data.depth)
             time = get_scalar(data.time)
-            self.add_temperatures_constant_time(time, depth, temps)
+            return self.add_temperatures_constant_time(time, depth, temps)
         else:
             keys = data.keys()
             # check for anything that looks like it might be a temperature
@@ -132,6 +136,7 @@ class Inlet(object):
                 name = getattr(data, "filename", None)
                 file_name = get_scalar(name) if name is not None else "unknown file"
                 logging.warning(f"{file_name} has unknown temperature variable")
+        return False
 
     def add_salinity_data_from(self, data):
         # TODO: do
@@ -148,7 +153,5 @@ class Inlet(object):
         self.stations[year].add(get_scalar(data.filename))
 
     def add_data_from(self, data):
-        self.add_temperature_data_from(data)
-        self.add_salinity_data_from(data)
-        self.add_oxygen_data_from(data)
-        self.add_station_from(data)
+        if self.add_temperature_data_from(data):
+            self.add_station_from(data)
