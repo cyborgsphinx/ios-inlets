@@ -36,6 +36,11 @@ def find_any(source, attrs: list[str]):
     else:
         return None
 
+def warn_unknown_variable(data, var, pred):
+    keys = data.keys()
+    if len([key for key in keys if pred(key)]) != 0:
+        logging.warning(f"{get_scalar(data.name)} has unknown {var} variable")
+
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
         # TODO: inject polygon instead of searching for it here
@@ -47,6 +52,16 @@ class Inlet(object):
             "shallow": [],
             "middle": [],
             "deep": [],
+        }
+        self.salinities = {
+            "shallow": [],
+            "middle": [],
+            "deep": [],
+        }
+        self.oxygens = {
+            "shallow": [],
+            "middle": [],
+            "deep": []
         }
         self.stations = {}
         self.polygon = polygon
@@ -65,34 +80,57 @@ class Inlet(object):
     def is_deep(self, depth):
         return is_in_bounds(depth, *self.deep_bounds)
 
-    def add_temperature(self, time, depth: float, temperature: float):
-        if self.is_shallow(depth):
-            category = "shallow"
-        elif self.is_middle(depth):
-            category = "middle"
-        elif self.is_deep(depth):
-            category = "deep"
-        else:
-            return False
-        self.temperatures[category].append([time, temperature])
-        return True
-
-    def add_temperatures(self, times, depths, temperatures):
+    def add_data(self, col, times, depths, data):
         if len(times) != len(depths):
             logging.warning("times and depths are of different lengths")
         used = False
-        for t, d, t_c in zip(times, depths, temperatures):
-            if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(t_c):
+        for t, d, datum in zip(times, depths, data):
+            if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum):
                 continue
-            if self.add_temperature(get_datetime(t), d, t_c):
-                used = True
+            if self.is_shallow(d):
+                category = "shallow"
+            elif self.is_middle(d):
+                category = "middle"
+            elif self.is_deep(d):
+                category = "deep"
+            else:
+                continue
+            col[category].append([get_datetime(t), datum])
+            used = True
         return used
 
+    def add_data_constant_time(self, col, time, depths, data):
+        return self.add_data(col, [time for _ in range(len(depths))], depths, data)
+
+    def add_data_constant_depth(self, col, times, depth, data):
+        return self.add_data(col, times, [depth for _ in range(len(times))], data)
+
+    def add_temperatures(self, times, depths, temperatures):
+        return self.add_data(self.temperatures, times, depths, temperatures)
+
     def add_temperatures_constant_time(self, time, depths, temperatures):
-        return self.add_temperatures([time for _ in range(len(depths))], depths, temperatures)
+        return self.add_data_constant_time(self.temperatures, time, depths, temperatures)
 
     def add_temperatures_constant_depth(self, times, depth, temperatures):
-        return self.add_temperatures(times, [depth for _ in range(len(times))], temperatures)
+        return self.add_data_constant_depth(self.temperatures, times, depth, temperatures)
+
+    def add_salinities(self, times, depths, salinities):
+        return self.add_data(self.salinities, times, depths, salinities)
+
+    def add_salinities_constant_time(self, time, depths, salinities):
+        return self.add_data_constant_time(self.salinities, time, depths, salinities)
+
+    def add_salinities_constant_depth(self, times, depth, salinities):
+        return self.add_data_constant_depth(self.salinities, times, depth, salinities)
+
+    def add_oxygen_data(self, times, depths, oxygen_data):
+        return self.add_data(self.oxygens, times, depths, oxygen_data)
+
+    def add_oxygen_data_constant_time(self, time, depths, oxygen_data):
+        return self.add_data_constant_time(self.oxygens, time, depths, oxygen_data)
+
+    def add_oxygen_data_constant_depth(self, times, depth, oxygen_data):
+        return self.add_data_constant_time(self.oxygens, times, depth, oxygen_data)
 
     def add_temperature_data_from(self, data):
         if not hasattr(data, "depth"):
@@ -129,22 +167,30 @@ class Inlet(object):
             time = get_scalar(data.time)
             return self.add_temperatures_constant_time(time, depth, temps)
         else:
-            keys = data.keys()
-            # check for anything that looks like it might be a temperature
-            # some datasets don't have recorded temperatures, and I'd rather not warn in those cases
-            if len([key for key in keys if key.lower().startswith("temp")]) != 0:
-                name = getattr(data, "filename", None)
-                file_name = get_scalar(name) if name is not None else "unknown file"
-                logging.warning(f"{file_name} has unknown temperature variable")
+            warn_unknown_variable(data, "temperature", lambda s: s.lower().startswith("temp"))
         return False
 
     def add_salinity_data_from(self, data):
-        # TODO: do
-        pass
+        # TODO: finish
+        # CTD/1966-062-0129.ctd.nc used as example
+        #if (sal := find_any(data, ["SSALST01"])) is not None:
+        #    depth = get_array(data.depth)
+        #    time = get_scalar(data.time)
+        #    return self.add_salinities_constant_time(time, depth, sal)
+        #else:
+        #    warn_unknown_variable(data, "salinity", lambda s: s.lower().startswith("ssal"))
+        return False
 
     def add_oxygen_data_from(self, data):
-        # TODO: do
-        pass
+        # TODO: finish
+        # BOT/1978-033-0013.bot.nc used as example
+        #if (oxy := find_any(data, ["DOXYZZ01"])) is not None:
+        #    depth = get_array(data.depth)
+        #    time = get_scalar(data.time)
+        #    return self.add_oxygen_data_constant_time(time, depth, oxy)
+        #else:
+        #    warn_unknown_variable(data, "oxygen", lambda s: s.lower().startswith("doxy"))
+        return False
 
     def add_station_from(self, data):
         year = get_datetime(data.time.head(1).item()).year

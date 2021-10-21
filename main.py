@@ -28,6 +28,32 @@ def chart_temperatures(inlet):
     plt.legend()
     plt.title(f"{inlet.name} Deep Water Temperatures")
 
+def chart_salinities(inlet):
+    # produce a matplotlib chart, which can be shown or saved at the upper level
+    plt.clf()
+    shallow_x, shallow_y = zip(*truncate(inlet.salinities["shallow"]))
+    plt.plot(shallow_x, shallow_y, "xg", label=f"{inlet.shallow_bounds[0]}m-{inlet.shallow_bounds[1]}m")
+    middle_x, middle_y = zip(*truncate(inlet.salinities["middle"]))
+    plt.plot(middle_x, middle_y, "+m", label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m")
+    deep_x, deep_y = zip(*truncate(inlet.salinities["deep"]))
+    plt.plot(deep_x, deep_y, "xb", label=f">{inlet.deep_bounds[0]}m")
+    plt.ylabel("Salinity (PSU (maybe))")
+    plt.legend()
+    plt.title(f"{inlet.name} Deep Water Salinity")
+
+def chart_oxygen_data(inlet):
+    # produce a matplotlib chart, which can be shown or saved at the upper level
+    plt.clf()
+    shallow_x, shallow_y = zip(*truncate(inlet.oxygens["shallow"]))
+    plt.plot(shallow_x, shallow_y, "xg", label=f"{inlet.shallow_bounds[0]}m-{inlet.shallow_bounds[1]}m")
+    middle_x, middle_y = zip(*truncate(inlet.oxygens["middle"]))
+    plt.plot(middle_x, middle_y, "+m", label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m")
+    deep_x, deep_y = zip(*truncate(inlet.oxygens["deep"]))
+    plt.plot(deep_x, deep_y, "xb", label=f">{inlet.deep_bounds[0]}m")
+    plt.ylabel("DO (ml/l)")
+    plt.legend()
+    plt.title(f"{inlet.name} Deep Water Dissolved Oxygen")
+
 def chart_stations(inlet):
     plt.clf()
     data = []
@@ -43,6 +69,13 @@ def chart_stations(inlet):
 
 def normalize(string):
     return string.strip().lower().replace(' ', '-')
+
+def do_chart(inlet, kind: str, show_figure: bool, chart_fn):
+    chart_fn(inlet)
+    if show_figure:
+        plt.show()
+    else:
+        plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-{kind}.png"))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -78,16 +111,20 @@ def main():
         with open(PICKLE_NAME, mode="wb") as f:
             pickle.dump(inlet_s, f)
     for inlet in inlet_s:
-        chart_temperatures(inlet)
-        if args.show_figure:
-            plt.show()
-        else:
-            plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-temperature.png"))
-        chart_stations(inlet)
-        if args.show_figure:
-            plt.show()
-        else:
-            plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-stations.png"))
+        do_chart(inlet, "temperature", args.show_figure, chart_temperatures)
+        #do_chart(inlet, "salinity", args.show_figure, chart_salinities)
+        #do_chart(inlet, "oxygen", args.show_figure, chart_oxygen_data)
+        do_chart(inlet, "station", args.show_figure, chart_stations)
+        #chart_temperatures(inlet)
+        #if args.show_figure:
+        #    plt.show()
+        #else:
+        #    plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-temperature.png"))
+        #chart_stations(inlet)
+        #if args.show_figure:
+        #    plt.show()
+        #else:
+        #    plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-stations.png"))
 
 if __name__ == "__main__":
     main()
