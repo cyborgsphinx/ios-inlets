@@ -37,7 +37,7 @@ def chart_salinities(inlet):
     plt.plot(middle_x, middle_y, "+m", label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m")
     deep_x, deep_y = zip(*truncate(inlet.salinities["deep"]))
     plt.plot(deep_x, deep_y, "xb", label=f">{inlet.deep_bounds[0]}m")
-    plt.ylabel("Salinity (PSU (maybe))")
+    plt.ylabel("Salinity (PSU)")
     plt.legend()
     plt.title(f"{inlet.name} Deep Water Salinity")
 
@@ -113,7 +113,7 @@ def main():
     for inlet in inlet_s:
         do_chart(inlet, "temperature", args.show_figure, chart_temperatures)
         do_chart(inlet, "salinity", args.show_figure, chart_salinities)
-        #do_chart(inlet, "oxygen", args.show_figure, chart_oxygen_data)
+        do_chart(inlet, "oxygen", args.show_figure, chart_oxygen_data)
         do_chart(inlet, "stations", args.show_figure, chart_stations)
 
 if __name__ == "__main__":

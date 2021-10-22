@@ -48,7 +48,6 @@ def warn_unknown_variable(data, var):
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
-        # TODO: inject polygon instead of searching for it here
         self.name = name
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
@@ -203,10 +202,20 @@ class Inlet(object):
 
     def add_oxygen_data_from(self, data):
         # BOT/1978-033-0013.bot.nc used as example
-        if (oxy := find_any(data, ["DOXYZZ01"])) is not None:
-            depth = get_array(data.depth)
-            time = get_scalar(data.time)
-            return self.add_oxygen_data_constant_time(time, depth, oxy)
+        if (oxy := find_any(data, ["DOXYZZ01", "DOXMZZ01"])) is not None:
+            if oxy.units.lower() != "ml/l":
+                logging.warning(f"Cowardly refusing to perform the conversion from {oxy.units} to mL/L in {get_scalar(data.filename)}")
+                return False
+            if hasattr(data, "depth"):
+                depth = get_array(data.depth)
+                if data.time.size > 1:
+                    time = get_array(data.time)
+                    return self.add_oxygen_data(time, depth, oxy)
+                else:
+                    time = get_scalar(data.time)
+                    return self.add_oxygen_data_constant_time(time, depth, oxy)
+            else:
+                warn_unknown_variable(data, "depth")
         else:
             warn_unknown_variable(data, "oxygen")
         return False
@@ -221,4 +230,6 @@ class Inlet(object):
         if self.add_temperature_data_from(data):
             self.add_station_from(data)
         if self.add_salinity_data_from(data):
+            self.add_station_from(data)
+        if self.add_oxygen_data_from(data):
             self.add_station_from(data)
