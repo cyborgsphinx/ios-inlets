@@ -112,19 +112,9 @@ def main():
             pickle.dump(inlet_s, f)
     for inlet in inlet_s:
         do_chart(inlet, "temperature", args.show_figure, chart_temperatures)
-        #do_chart(inlet, "salinity", args.show_figure, chart_salinities)
+        do_chart(inlet, "salinity", args.show_figure, chart_salinities)
         #do_chart(inlet, "oxygen", args.show_figure, chart_oxygen_data)
-        do_chart(inlet, "station", args.show_figure, chart_stations)
-        #chart_temperatures(inlet)
-        #if args.show_figure:
-        #    plt.show()
-        #else:
-        #    plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-temperature.png"))
-        #chart_stations(inlet)
-        #if args.show_figure:
-        #    plt.show()
-        #else:
-        #    plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-stations.png"))
+        do_chart(inlet, "stations", args.show_figure, chart_stations)
 
 if __name__ == "__main__":
     main()

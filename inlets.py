@@ -2,6 +2,7 @@ import json
 import logging
 import numpy
 import pandas
+import re
 from shapely.geometry import Point, Polygon
 
 def find_polygon_for(name):
@@ -36,10 +37,14 @@ def find_any(source, attrs: list[str]):
     else:
         return None
 
-def warn_unknown_variable(data, var, pred):
-    keys = data.keys()
-    if len([key for key in keys if pred(key)]) != 0:
-        logging.warning(f"{get_scalar(data.name)} has unknown {var} variable")
+def warn_unknown_variable(data, var):
+    # check if there is a potential variable based on the broader name
+    var_list = []
+    for key in data.keys():
+        if re.search(var, getattr(data[key], "long_name", "").lower()):
+            var_list.append(key)
+    if len(var_list) != 0:
+        logging.warning(f"{get_scalar(data.filename)} has unknown {var} variable. Possible values: {var_list}")
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
@@ -158,38 +163,52 @@ class Inlet(object):
                 # treat like CUR/CM1_19890407_19890504_0020m.cur.nc
                 return self.add_temperatures_constant_depth(time, data.instrument_depth.item(), temps)
             else:
-                name = getattr(data, "filename", None)
-                file_name = get_scalar(name) if name is not None else "unknown file"
-                logging.warning(f"{file_name} has unknown depth variable")
+                warn_unknown_variable(data, "depth")
         # CTD/2021-020-0001.ctd.nc and BOT/1983-030-0018.che.nc used as example
         elif (temps := find_any(data, ["TEMPS901", "TEMPS601"])) is not None:
             depth = get_array(data.depth)
             time = get_scalar(data.time)
             return self.add_temperatures_constant_time(time, depth, temps)
         else:
-            warn_unknown_variable(data, "temperature", lambda s: s.lower().startswith("temp"))
+            warn_unknown_variable(data, "temperature")
         return False
 
     def add_salinity_data_from(self, data):
-        # TODO: finish
         # CTD/1966-062-0129.ctd.nc used as example
-        #if (sal := find_any(data, ["SSALST01"])) is not None:
-        #    depth = get_array(data.depth)
-        #    time = get_scalar(data.time)
-        #    return self.add_salinities_constant_time(time, depth, sal)
-        #else:
-        #    warn_unknown_variable(data, "salinity", lambda s: s.lower().startswith("ssal"))
+        if (sal := find_any(data, ["sea_water_practical_salinity"])) is not None:
+            if not hasattr(data, "depth"):
+                return False
+            depth = get_array(data.depth)
+            if data.time.size > 1:
+                time = get_array(data.time)
+                return self.add_salinities(time, depth, sal)
+            else:
+                time = get_scalar(data.time)
+                return self.add_salinities_constant_time(time, depth, sal)
+        # CUR/C_19780823_19781204_0175m.cur.nc used as example
+        elif (sal := find_any(data, ["PSLTZZ01"])) is not None:
+            if hasattr(data, "instrument_depth"):
+                depth = get_scalar(data.instrument_depth)
+                time = get_array(data.time)
+                return self.add_salinities_constant_depth(time, depth, sal)
+            else:
+                warn_unknown_variable(data, "depth")
+        elif (sal := find_any(data, ["ODSDM021"])) is not None:
+            depth = get_scalar(data.instrument_depth)
+            time = get_array(data.time)
+            return self.add_salinities_constant_depth(time, depth, sal)
+        else:
+            warn_unknown_variable(data, "salinity")
         return False
 
     def add_oxygen_data_from(self, data):
-        # TODO: finish
         # BOT/1978-033-0013.bot.nc used as example
-        #if (oxy := find_any(data, ["DOXYZZ01"])) is not None:
-        #    depth = get_array(data.depth)
-        #    time = get_scalar(data.time)
-        #    return self.add_oxygen_data_constant_time(time, depth, oxy)
-        #else:
-        #    warn_unknown_variable(data, "oxygen", lambda s: s.lower().startswith("doxy"))
+        if (oxy := find_any(data, ["DOXYZZ01"])) is not None:
+            depth = get_array(data.depth)
+            time = get_scalar(data.time)
+            return self.add_oxygen_data_constant_time(time, depth, oxy)
+        else:
+            warn_unknown_variable(data, "oxygen")
         return False
 
     def add_station_from(self, data):
@@ -200,4 +219,6 @@ class Inlet(object):
 
     def add_data_from(self, data):
         if self.add_temperature_data_from(data):
+            self.add_station_from(data)
+        if self.add_salinity_data_from(data):
             self.add_station_from(data)
