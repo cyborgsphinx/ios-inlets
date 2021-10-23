@@ -1,4 +1,5 @@
 import json
+import gsw
 import logging
 import numpy
 import pandas
@@ -37,6 +38,18 @@ def find_any(source, attrs: list[str]):
     else:
         return None
 
+def find_temperature_data(data):
+    return find_any(data, ["TEMPRTN1", "TEMPST01", "TEMPPR01", "TEMPPR03", "TEMPS901", "TEMPS601"])
+
+def find_salinity_data(data):
+    return find_any(data, ["PSLTZZ01", "ODSDM021", "sea_water_practical_salinity"])
+
+def find_oxygen_data(data):
+    return find_any(data, ["DOXYZZ01", "DOXMZZ01"])
+
+def find_depth_data(data):
+    return find_any(data, ["depth", "instrument_depth", "PPSAADCP"])
+
 def warn_unknown_variable(data, var):
     # check if there is a potential variable based on the broader name
     var_list = []
@@ -45,6 +58,20 @@ def warn_unknown_variable(data, var):
             var_list.append(key)
     if len(var_list) != 0:
         logging.warning(f"{get_scalar(data.filename)} has unknown {var} variable. Possible values: {var_list}")
+
+def warn_wrong_units(expected, actual, filename):
+    logging.warning(f"Cowardly refusing to perform the conversion from {actual} to {expected} in {filename}")
+
+def convert_umol_kg_to_mL_L(oxygen_umol_L, temperature, salinity_SP, pressure, longitude, latitude):
+    logging.warning("This function is untested. Please write a test for the behaviour.")
+    salinity_SA = gsw.SA_from_SP(salinity_SP, pressure, longitude, latitude)
+    density = gsw.rho(
+        salinity_SA,
+        gsw.CT_from_t(salinity_SA, temperature, pressure),
+        0
+    )
+    oxygen = map(lambda o, d: o * 1000 / d, oxygen_umol_L, density)
+    return map(lambda o, d: o / 44661 * d, oxygen, density)
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
@@ -70,6 +97,15 @@ class Inlet(object):
         self.stations = {}
         self.polygon = polygon
 
+    def has_temperature_data(self):
+        return len(self.temperatures["shallow"]) > 0 or len(self.temperatures["middle"]) > 0 or len(self.temperatures["deep"]) > 0
+
+    def has_salinity_data(self):
+        return len(self.salinities["shallow"]) > 0 or len(self.salinities["middle"]) > 0 or len(self.salinities["deep"]) > 0
+
+    def has_oxygen_data(self):
+        return len(self.oxygens["shallow"]) > 0 or len(self.oxygens["middle"]) > 0 or len(self.oxygens["deep"]) > 0
+
     def contains(self, data):
         longitude = data["longitude"]
         latitude = data["latitude"]
@@ -89,7 +125,10 @@ class Inlet(object):
             logging.warning("times and depths are of different lengths")
         used = False
         for t, d, datum in zip(times, depths, data):
-            if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum):
+            # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
+            # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
+            # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
+            if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum) or datum > 9.9e+36:
                 continue
             if self.is_shallow(d):
                 category = "shallow"
@@ -109,111 +148,46 @@ class Inlet(object):
     def add_data_constant_depth(self, col, times, depth, data):
         return self.add_data(col, times, [depth for _ in range(len(times))], data)
 
-    def add_temperatures(self, times, depths, temperatures):
-        return self.add_data(self.temperatures, times, depths, temperatures)
-
-    def add_temperatures_constant_time(self, time, depths, temperatures):
-        return self.add_data_constant_time(self.temperatures, time, depths, temperatures)
-
-    def add_temperatures_constant_depth(self, times, depth, temperatures):
-        return self.add_data_constant_depth(self.temperatures, times, depth, temperatures)
-
-    def add_salinities(self, times, depths, salinities):
-        return self.add_data(self.salinities, times, depths, salinities)
-
-    def add_salinities_constant_time(self, time, depths, salinities):
-        return self.add_data_constant_time(self.salinities, time, depths, salinities)
-
-    def add_salinities_constant_depth(self, times, depth, salinities):
-        return self.add_data_constant_depth(self.salinities, times, depth, salinities)
-
-    def add_oxygen_data(self, times, depths, oxygen_data):
-        return self.add_data(self.oxygens, times, depths, oxygen_data)
-
-    def add_oxygen_data_constant_time(self, time, depths, oxygen_data):
-        return self.add_data_constant_time(self.oxygens, time, depths, oxygen_data)
-
-    def add_oxygen_data_constant_depth(self, times, depth, oxygen_data):
-        return self.add_data_constant_time(self.oxygens, times, depth, oxygen_data)
+    def add_data_to_col(self, col, time, depth, data):
+        return {
+            (True, True): lambda: self.add_data(col, get_array(time), get_array(depth), data),
+            (False, True): lambda: self.add_data_constant_time(col, get_scalar(time), get_array(depth), data),
+            (True, False): lambda: self.add_data_constant_depth(col, get_array(time), get_scalar(depth), data),
+            (False, False): lambda: self.add_data(col, [get_scalar(time)], [get_scalar(depth)], data),
+        }[(time.size > 1, depth.size > 1)]()
 
     def add_temperature_data_from(self, data):
-        if not hasattr(data, "depth"):
-            logging.info(f"data from {data.filename.item()} has no depth information, discarding")
-            return False
-        # find values in specific depth intervals
-        # will be plotted against time
-        # BOT/1930-031-0001.bot.nc and CTD/1966-062-0129.ctd.nc used as example
-        if (temps := find_any(data, ["TEMPRTN1", "TEMPST01"])) is not None:
-            depth = get_array(data.depth)
-            if data.time.size == 1:
-                time = get_scalar(data.time)
-                return self.add_temperatures_constant_time(time, depth, temps)
-            else:
-                time = get_array(data.time)
-                return self.add_temperatures(time, depth, temps)
-        # ADCP/nep1_20060512_20060525_0095m.adcp.L1.nc and CUR/CM1_19890407_19890504_0020m.cur.nc used as example
-        elif (temps := find_any(data, ["TEMPPR01", "TEMPPR03"])) is not None:
-            time = get_array(data.time)
-            if hasattr(data, "PPSAADCP"):
-                # treat like ADCP/nep1_20060512_20060525_0095m.adcp.L1.nc
-                depth = get_array(data.PPSAADCP)
-                return self.add_temperatures(time, depth, temps)
-            elif hasattr(data, "instrument_depth"):
-                # treat like CUR/CM1_19890407_19890504_0020m.cur.nc
-                return self.add_temperatures_constant_depth(time, data.instrument_depth.item(), temps)
+        if (temp := find_temperature_data(data)) is not None:
+            if (depth := find_depth_data(data)) is not None:
+                return self.add_data_to_col(self.temperatures, data.time, depth, temp)
             else:
                 warn_unknown_variable(data, "depth")
-        # CTD/2021-020-0001.ctd.nc and BOT/1983-030-0018.che.nc used as example
-        elif (temps := find_any(data, ["TEMPS901", "TEMPS601"])) is not None:
-            depth = get_array(data.depth)
-            time = get_scalar(data.time)
-            return self.add_temperatures_constant_time(time, depth, temps)
         else:
             warn_unknown_variable(data, "temperature")
         return False
 
     def add_salinity_data_from(self, data):
-        # CTD/1966-062-0129.ctd.nc used as example
-        if (sal := find_any(data, ["sea_water_practical_salinity"])) is not None:
-            if not hasattr(data, "depth"):
+        if (sal := find_salinity_data(data)) is not None:
+            if sal.units.lower() in ["ppt"]:
+                sal = gsw.SP_from_SK(sal)
+            elif sal.units.lower() not in ["psu", "pss-78"]:
+                warn_wrong_units("PSU", sal.units, get_scalar(data.filename))
                 return False
-            depth = get_array(data.depth)
-            if data.time.size > 1:
-                time = get_array(data.time)
-                return self.add_salinities(time, depth, sal)
-            else:
-                time = get_scalar(data.time)
-                return self.add_salinities_constant_time(time, depth, sal)
-        # CUR/C_19780823_19781204_0175m.cur.nc used as example
-        elif (sal := find_any(data, ["PSLTZZ01"])) is not None:
-            if hasattr(data, "instrument_depth"):
-                depth = get_scalar(data.instrument_depth)
-                time = get_array(data.time)
-                return self.add_salinities_constant_depth(time, depth, sal)
+            if (depth := find_depth_data(data)) is not None:
+                return self.add_data_to_col(self.salinities, data.time, depth, sal)
             else:
                 warn_unknown_variable(data, "depth")
-        elif (sal := find_any(data, ["ODSDM021"])) is not None:
-            depth = get_scalar(data.instrument_depth)
-            time = get_array(data.time)
-            return self.add_salinities_constant_depth(time, depth, sal)
         else:
             warn_unknown_variable(data, "salinity")
         return False
 
     def add_oxygen_data_from(self, data):
-        # BOT/1978-033-0013.bot.nc used as example
-        if (oxy := find_any(data, ["DOXYZZ01", "DOXMZZ01"])) is not None:
+        if (oxy := find_oxygen_data(data)) is not None:
             if oxy.units.lower() != "ml/l":
-                logging.warning(f"Cowardly refusing to perform the conversion from {oxy.units} to mL/L in {get_scalar(data.filename)}")
+                warn_wrong_units("mL/L", oxy.units, get_scalar(data.filename))
                 return False
-            if hasattr(data, "depth"):
-                depth = get_array(data.depth)
-                if data.time.size > 1:
-                    time = get_array(data.time)
-                    return self.add_oxygen_data(time, depth, oxy)
-                else:
-                    time = get_scalar(data.time)
-                    return self.add_oxygen_data_constant_time(time, depth, oxy)
+            if (depth := find_depth_data(data)) is not None:
+                return self.add_data_to_col(self.oxygens, data.time, depth, oxy)
             else:
                 warn_unknown_variable(data, "depth")
         else:

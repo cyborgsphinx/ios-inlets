@@ -139,6 +139,17 @@ optional = false
 python-versions = ">=2.7"
 
 [[package]]
+name = "gsw"
+version = "3.4.0"
+description = "Gibbs Seawater Oceanographic Package of TEOS-10"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "iniconfig"
 version = "1.1.1"
 description = "iniconfig: brain-dead simple config-ini parsing"
@@ -956,7 +967,7 @@ viz = ["matplotlib", "seaborn", "nc-time-axis"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.10"
-content-hash = "96e76ab294414072af9fd812dbcdd9b43a05030a33d03b0852d07a3fd94389db"
+content-hash = "e0b6356b5e0f475654e8c445c70d300290e6c09e1d4c85b1f23345482e2de86f"
 
 [metadata.files]
 appnope = [
@@ -1109,6 +1120,18 @@ defusedxml = [
 entrypoints = [
     {file = "entrypoints-0.3-py2.py3-none-any.whl", hash = "sha256:589f874b313739ad35be6e0cd7efde2a4e9b6fea91edcc34e58ecbb8dbe56d19"},
     {file = "entrypoints-0.3.tar.gz", hash = "sha256:c70dd71abe5a8c85e55e12c19bd91ccfeec11a6e99044204511f9ed547d48451"},
+]
+gsw = [
+    {file = "gsw-3.4.0-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:c355bab42a4c2a8b3041c4b35fca371375ebddc0e48cbce6b1322e95451be0a7"},
+    {file = "gsw-3.4.0-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:2f854e8cd6b25f0d4ada2f432c232d484d116d13f4a0ad1c54dc335ef2bcdfc8"},
+    {file = "gsw-3.4.0-cp36-cp36m-win_amd64.whl", hash = "sha256:7f3c23a37b5d9cb4e1da297bef6a02e1401636c470de3ba33701aa7dc3ecda11"},
+    {file = "gsw-3.4.0-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:b0731de8be614a0d84bc0c828e8f2cab7e0af8c04f7314ff03105c615946d5a6"},
+    {file = "gsw-3.4.0-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:291e87f04c7c22e9f667c982666bf7c146304f55f836406d978cf080a731abcd"},
+    {file = "gsw-3.4.0-cp37-cp37m-win_amd64.whl", hash = "sha256:be2bf10ba8d603617d3422df7f3b92aa2c8bd7ceed11defcb1ec69f5eed8f846"},
+    {file = "gsw-3.4.0-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:c2eb37d9be37412189d086ee4022de79ad8c9df471c13a9b3db2e4c69597f399"},
+    {file = "gsw-3.4.0-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:e61c5994986dc1feb49b520a6944d7d6a003144e8763f7cbd41767848025c56a"},
+    {file = "gsw-3.4.0-cp38-cp38-win_amd64.whl", hash = "sha256:3b50e93478a9eec3d364603267a37a4b2bab132cd20c7b544b706038aa5e3ec7"},
+    {file = "gsw-3.4.0.tar.gz", hash = "sha256:d45c835af0e539235e9cf46ae58d9447e206d145b13ecfe7447ad7b8fbdcf86d"},
 ]
 iniconfig = [
     {file = "iniconfig-1.1.1-py2.py3-none-any.whl", hash = "sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3"},

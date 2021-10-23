@@ -15,6 +15,7 @@ ipykernel = "^6.4.1"
 scipy = "^1.7.1"
 Shapely = "^1.7.1"
 PyGObject = "^3.42.0"
+gsw = "^3.4.0"
 
 [tool.poetry.dev-dependencies]
 
