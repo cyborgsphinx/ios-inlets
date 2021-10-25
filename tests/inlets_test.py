@@ -181,3 +181,35 @@ def test_inlet_add_oxygen(source):
     data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
     inlet.add_oxygen_data_from(data)
     assert inlet.has_oxygen_data()
+
+@pytest.mark.parametrize(
+    "oxygen_umol_L,temperature_C,salinity_SP,pressure_dbar,longitude,latitude,expecteds",
+    [
+        (
+            [  201.3,   192.5,   172.2,   161.3,   145.7,   115.6,  139.9,   138.9,   120.9,   101.2,    75.5,    65.1,    61.2,    60.0],
+            [11.0228, 10.6766,   9.827,  9.4797,  9.2095,  8.1733, 7.5017,  7.3041,  7.1969,  6.9334,  6.9748,  6.8451,  6.7665,  6.7248],
+            [31.7055, 31.7774, 31.9284, 32.1258, 32.1665, 32.8476,  33.12, 33.4193, 33.5858, 33.7288, 33.8478, 33.8913, 33.9206, 33.9263],
+            [    1.1,     5.1,     9.9,    19.9,    30.4,    40.8,   50.8,    75.3,    99.9,   125.0,   150.2,   175.3,   200.7,   249.0],
+            -124.73517,
+            48.50083,
+            [   4.62,    4.42,    3.95,    3.70,    3.34,    2.66,   3.21,    3.19,    2.78,    2.33,    1.74,    1.50,    1.41,    1.38],
+        )
+    ])
+def test_convert_oxygen_data(
+        oxygen_umol_L,
+        temperature_C,
+        salinity_SP,
+        pressure_dbar,
+        longitude,
+        latitude,
+        expecteds):
+    actuals = inlets.convert_umol_kg_to_mL_L(
+        oxygen_umol_L,
+        temperature_C,
+        salinity_SP,
+        pressure_dbar,
+        longitude,
+        latitude)
+    assert len(actuals) == len(expecteds)
+    for actual, expected, oxygen, temperature, salinity, pressure in zip(actuals, expecteds, oxygen_umol_L, temperature_C, salinity_SP, pressure_dbar):
+        assert abs(actual - expected) < 0.01, f"Failure in conversion at oxygen(umol/kg)={oxygen}, temperature(C)={temperature}, salinity(PSU)={salinity}, pressure(dbar)={pressure}"

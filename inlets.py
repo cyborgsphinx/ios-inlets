@@ -65,16 +65,20 @@ def warn_unknown_variable(data, var):
 def warn_wrong_units(expected, actual, filename):
     logging.warning(f"Cowardly refusing to perform the conversion from {actual} to {expected} in {filename}")
 
-def convert_umol_kg_to_mL_L(oxygen_umol_L, temperature, salinity_SP, pressure, longitude, latitude):
-    logging.warning("This function is untested. Please write a test for the behaviour.")
-    salinity_SA = gsw.SA_from_SP(salinity_SP, pressure, longitude, latitude)
+def convert_umol_kg_to_mL_L(oxygen_umol_kg, temperature_C, salinity_SP, pressure_dbar, longitude, latitude):
+    salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
+    # density in kg/m^3
     density = gsw.rho(
         salinity_SA,
-        gsw.CT_from_t(salinity_SA, temperature, pressure),
-        0
+        gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
+        pressure_dbar
     )
-    oxygen = map(lambda o, d: o * 1000 / d, oxygen_umol_L, density)
-    return map(lambda o, d: o / 44661 * d, oxygen, density)
+    # oxygen in umol/kg
+    # conversion rate in (roughly) umol/mL
+    oxygen_umol_per_ml = 44.661
+    # 1 L = 10^-3 m^3
+    metre_cube_per_litre = 0.001
+    return list(map(lambda o, d: o * d / oxygen_umol_per_ml * metre_cube_per_litre, oxygen_umol_kg, density))
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
@@ -184,8 +188,14 @@ class Inlet(object):
     def add_oxygen_data_from(self, data):
         if (oxy := find_oxygen_data(data)) is not None:
             if oxy.units.lower() != "ml/l":
-                warn_wrong_units("mL/L", oxy.units, get_scalar(data.filename))
-                return False
+                if oxy.units.lower() == "umol/kg" and\
+                        (temps := find_temperature_data(data)) is not None and\
+                        (sal := find_salinity_data(data)) is not None and\
+                        (pres := find_pressure_data(data)) is not None:
+                    oxy = convert_umol_kg_to_mL_L(oxy, temps, sal, pres, get_scalar(data.longitude), get_scalar(data.latitude))
+                else:
+                    warn_wrong_units("mL/L", oxy.units, get_scalar(data.filename))
+                    return False
             if (depth := find_depth_data(data)) is not None:
                 return self.add_data_to_col(self.oxygens, data.time, depth, oxy)
             else:
