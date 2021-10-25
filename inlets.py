@@ -50,6 +50,9 @@ def find_oxygen_data(data):
 def find_depth_data(data):
     return find_any(data, ["depth", "instrument_depth", "PPSAADCP"])
 
+def find_pressure_data(data):
+    return find_any(data, ["PRESPR01", "sea_water_pressure"])
+
 def warn_unknown_variable(data, var):
     # check if there is a potential variable based on the broader name
     var_list = []
@@ -121,8 +124,8 @@ class Inlet(object):
         return is_in_bounds(depth, *self.deep_bounds)
 
     def add_data(self, col, times, depths, data):
-        if len(times) != len(depths):
-            logging.warning("times and depths are of different lengths")
+        if len(times) != len(data) or len(depths) != len(data):
+            logging.warning("times, depths, and data are of different lengths")
         used = False
         for t, d, datum in zip(times, depths, data):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
@@ -142,19 +145,16 @@ class Inlet(object):
             used = True
         return used
 
-    def add_data_constant_time(self, col, time, depths, data):
-        return self.add_data(col, [time for _ in range(len(depths))], depths, data)
-
-    def add_data_constant_depth(self, col, times, depth, data):
-        return self.add_data(col, times, [depth for _ in range(len(times))], data)
-
     def add_data_to_col(self, col, time, depth, data):
-        return {
-            (True, True): lambda: self.add_data(col, get_array(time), get_array(depth), data),
-            (False, True): lambda: self.add_data_constant_time(col, get_scalar(time), get_array(depth), data),
-            (True, False): lambda: self.add_data_constant_depth(col, get_array(time), get_scalar(depth), data),
-            (False, False): lambda: self.add_data(col, [get_scalar(time)], [get_scalar(depth)], data),
-        }[(time.size > 1, depth.size > 1)]()
+        if time.size == 1:
+            time = [time.item() for _ in range(len(data))]
+        else:
+            time = get_array(time)
+        if depth.size == 1:
+            depth = [depth.item() for _ in range(len(data))]
+        else:
+            depth = get_array(depth)
+        return self.add_data(col, time, depth, data)
 
     def add_temperature_data_from(self, data):
         if (temp := find_temperature_data(data)) is not None:
