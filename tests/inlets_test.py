@@ -183,7 +183,7 @@ def test_inlet_add_oxygen(source):
     assert inlet.has_oxygen_data()
 
 @pytest.mark.parametrize(
-    "oxygen_umol_L,temperature_C,salinity_SP,pressure_dbar,longitude,latitude,expecteds",
+    "oxygen_umol_kg,temperature_C,salinity_SP,pressure_dbar,longitude,latitude,expecteds",
     [
         (
             [  201.3,   192.5,   172.2,   161.3,   145.7,   115.6,  139.9,   138.9,   120.9,   101.2,    75.5,    65.1,    61.2,    60.0],
@@ -193,10 +193,10 @@ def test_inlet_add_oxygen(source):
             -124.73517,
             48.50083,
             [   4.62,    4.42,    3.95,    3.70,    3.34,    2.66,   3.21,    3.19,    2.78,    2.33,    1.74,    1.50,    1.41,    1.38],
-        )
+        ),
     ])
-def test_convert_oxygen_data(
-        oxygen_umol_L,
+def test_convert_oxygen_data_full_data(
+        oxygen_umol_kg,
         temperature_C,
         salinity_SP,
         pressure_dbar,
@@ -204,12 +204,35 @@ def test_convert_oxygen_data(
         latitude,
         expecteds):
     actuals = inlets.convert_umol_kg_to_mL_L(
-        oxygen_umol_L,
+        oxygen_umol_kg,
+        longitude,
+        latitude,
         temperature_C,
         salinity_SP,
-        pressure_dbar,
+        pressure_dbar)
+    assert len(actuals) == len(expecteds)
+    for actual, expected, oxygen, temperature, salinity, pressure in zip(actuals, expecteds, oxygen_umol_kg, temperature_C, salinity_SP, pressure_dbar):
+        assert abs(actual - expected) < 0.01, f"Failure in conversion at oxygen(umol/kg)={oxygen}, temperature(C)={temperature}, salinity(PSU)={salinity}, pressure(dbar)={pressure}"
+
+@pytest.mark.parametrize(
+    "oxygen_umol_kg,longitude,latitude,expecteds",
+    [
+        (
+            [291.6, 292.8, 240.9, 194.6, 184.2, 172.8, 115.0, 110.1],
+            -124.2405,
+            49.7585,
+            [6.73, 6.711, 5.508, 4.455, 4.218, 3.957, 2.635, 2.523],
+        )
+    ])
+def test_convert_oxygen_data_missing_data(
+        oxygen_umol_kg,
+        longitude,
+        latitude,
+        expecteds):
+    actuals = inlets.convert_umol_kg_to_mL_L(
+        oxygen_umol_kg,
         longitude,
         latitude)
     assert len(actuals) == len(expecteds)
-    for actual, expected, oxygen, temperature, salinity, pressure in zip(actuals, expecteds, oxygen_umol_L, temperature_C, salinity_SP, pressure_dbar):
-        assert abs(actual - expected) < 0.01, f"Failure in conversion at oxygen(umol/kg)={oxygen}, temperature(C)={temperature}, salinity(PSU)={salinity}, pressure(dbar)={pressure}"
+    for actual, expected in zip(actuals, expecteds):
+        assert abs(actual - expected) < 0.21

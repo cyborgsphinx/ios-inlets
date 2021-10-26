@@ -65,20 +65,29 @@ def warn_unknown_variable(data, var):
 def warn_wrong_units(expected, actual, filename):
     logging.warning(f"Cowardly refusing to perform the conversion from {actual} to {expected} in {filename}")
 
-def convert_umol_kg_to_mL_L(oxygen_umol_kg, temperature_C, salinity_SP, pressure_dbar, longitude, latitude):
-    salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
-    # density in kg/m^3
-    density = gsw.rho(
-        salinity_SA,
-        gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
-        pressure_dbar
-    )
-    # oxygen in umol/kg
+def convert_umol_kg_to_mL_L(oxygen_umol_kg, longitude, latitude, temperature_C=None, salinity_SP=None, pressure_dbar=None):
     # conversion rate in (roughly) umol/mL
     oxygen_umol_per_ml = 44.661
     # 1 L = 10^-3 m^3
     metre_cube_per_litre = 0.001
-    return list(map(lambda o, d: o * d / oxygen_umol_per_ml * metre_cube_per_litre, oxygen_umol_kg, density))
+    if temperature_C is not None and salinity_SP is not None and pressure_dbar is not None:
+        salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
+        # density in kg/m^3
+        density = gsw.rho(
+            salinity_SA,
+            gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
+            pressure_dbar
+        )
+        # oxygen in umol/kg
+        return list(map(lambda o, d: o * d / oxygen_umol_per_ml * metre_cube_per_litre, oxygen_umol_kg, density))
+    else:
+        # missing data necessary to create accurate density, assuming constant density using sigma-theta method
+        density = gsw.rho(
+            [0],
+            [0],
+            0
+        )[0]
+        return [o * density / oxygen_umol_per_ml * metre_cube_per_litre for o in oxygen_umol_kg]
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
@@ -188,11 +197,14 @@ class Inlet(object):
     def add_oxygen_data_from(self, data):
         if (oxy := find_oxygen_data(data)) is not None:
             if oxy.units.lower() != "ml/l":
-                if oxy.units.lower() == "umol/kg" and\
-                        (temps := find_temperature_data(data)) is not None and\
-                        (sal := find_salinity_data(data)) is not None and\
-                        (pres := find_pressure_data(data)) is not None:
-                    oxy = convert_umol_kg_to_mL_L(oxy, temps, sal, pres, get_scalar(data.longitude), get_scalar(data.latitude))
+                if oxy.units.lower() == "umol/kg":
+                    oxy = convert_umol_kg_to_mL_L(
+                        oxy,
+                        get_scalar(data.longitude),
+                        get_scalar(data.latitude),
+                        find_temperature_data(data),
+                        find_salinity_data(data),
+                        find_pressure_data(data))
                 else:
                     warn_wrong_units("mL/L", oxy.units, get_scalar(data.filename))
                     return False
