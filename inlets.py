@@ -1,4 +1,3 @@
-import json
 import gsw
 import logging
 import numpy
@@ -177,70 +176,78 @@ class Inlet(object):
         return used
 
     def add_temperature_data_from(self, data):
-        if (temp := find_temperature_data(data)) is not None:
-            if (depth := find_depth_data(data)) is not None:
-                return self.add_data(self.temperatures, data.time, depth, temp, data.longitude, data.latitude)
-            else:
-                warn_unknown_variable(data, "depth")
-        else:
+        temperature = find_temperature_data(data)
+        if temperature is None:
             warn_unknown_variable(data, "temperature")
-        return False
+            return False
+        depth = find_depth_data(data)
+        if depth is None:
+            warn_unknown_variable(data, "depth")
+            return False
+
+        return self.add_data(self.temperatures, data.time, depth, temperature, data.longitude, data.latitude)
 
     def add_salinity_data_from(self, data):
-        if (sal := find_salinity_data(data)) is not None:
-            computed = False
-            if sal.units.lower() in ["ppt"]:
-                sal = gsw.SP_from_SK(sal)
-                computed = True
-            elif sal.units.lower() not in ["psu", "pss-78"]:
-                warn_wrong_units("PSU", sal.units, get_scalar(data.filename))
-                return False
-            if (depth := find_depth_data(data)) is not None:
-                return self.add_data(
-                    self.salinities,
-                    data.time,
-                    depth,
-                    sal,
-                    data.longitude,
-                    data.latitude,
-                    computed=computed)
-            else:
-                warn_unknown_variable(data, "depth")
-        else:
+        salinity = find_salinity_data(data)
+        if salinity is None:
             warn_unknown_variable(data, "salinity")
-        return False
+            return False
+        depth = find_depth_data(data)
+        if depth is None:
+            warn_unknown_variable(data, "depth")
+            return False
+
+        computed = False
+        if salinity.units.lower() in ["ppt"]:
+            salinity = gsw.SP_from_SK(salinity)
+            computed = True
+        elif salinity.units.lower() not in ["psu", "pss-78"]:
+            warn_wrong_units("PSU", salinity.units, get_scalar(data.filename))
+            return False
+
+        return self.add_data(
+            self.salinities,
+            data.time,
+            depth,
+            salinity,
+            data.longitude,
+            data.latitude,
+            computed=computed)
 
     def add_oxygen_data_from(self, data):
-        if (oxy := find_oxygen_data(data)) is not None:
-            computed = False
-            assumed_density = False
-            if oxy.units.lower() != "ml/l":
-                if oxy.units.lower() == "umol/kg":
-                    oxy, assumed_density = convert_umol_kg_to_mL_L(
-                        oxy,
-                        get_scalar(data.longitude),
-                        get_scalar(data.latitude),
-                        find_temperature_data(data),
-                        find_salinity_data(data),
-                        find_pressure_data(data))
-                else:
-                    warn_wrong_units("mL/L", oxy.units, get_scalar(data.filename))
-                    return False
-            if (depth := find_depth_data(data)) is not None:
-                return self.add_data(
-                    self.oxygens,
-                    data.time,
-                    depth,
-                    oxy,
-                    data.longitude,
-                    data.latitude,
-                    computed=computed,
-                    assumed_density=assumed_density)
-            else:
-                warn_unknown_variable(data, "depth")
-        else:
+        oxygen = find_oxygen_data(data)
+        if oxygen is None:
             warn_unknown_variable(data, "oxygen")
-        return False
+            return False
+        depth = find_depth_data(data)
+        if depth is None:
+            warn_unknown_variable(data, "depth")
+            return False
+
+        computed = False
+        assumed_density = False
+        if oxygen.units.lower() != "ml/l":
+            if oxygen.units.lower() == "umol/kg":
+                oxygen, assumed_density = convert_umol_kg_to_mL_L(
+                    oxygen,
+                    get_scalar(data.longitude),
+                    get_scalar(data.latitude),
+                    find_temperature_data(data),
+                    find_salinity_data(data),
+                    find_pressure_data(data))
+            else:
+                warn_wrong_units("mL/L", oxygen.units, get_scalar(data.filename))
+                return False
+
+        return self.add_data(
+            self.oxygens,
+            data.time,
+            depth,
+            oxygen,
+            data.longitude,
+            data.latitude,
+            computed=computed,
+            assumed_density=assumed_density)
 
     def add_station_from(self, data):
         year = get_datetime(data.time.head(1).item()).year
