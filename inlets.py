@@ -6,15 +6,9 @@ import pandas
 import re
 from shapely.geometry import Point, Polygon
 
-def find_polygon_for(name):
-    file = "inlets.json"
-    with open(file) as f:
-        inlets = json.load(f)
-    for inlet in inlets["features"]:
-        if inlet["properties"]["name"] == name:
-            return Polygon(inlet["geometry"]["coordinates"][0])
-    else:
-        raise RuntimeError(f"Could not find {name} in {file}")
+SHALLOW = "shallow"
+MIDDLE = "middle"
+DEEP = "deep"
 
 def is_in_bounds(val, lower, upper):
     if upper is not None:
@@ -79,7 +73,7 @@ def convert_umol_kg_to_mL_L(oxygen_umol_kg, longitude, latitude, temperature_C=N
             pressure_dbar
         )
         # oxygen in umol/kg
-        return list(map(lambda o, d: o * d / oxygen_umol_per_ml * metre_cube_per_litre, oxygen_umol_kg, density))
+        return [o * d / oxygen_umol_per_ml * metre_cube_per_litre for o, d in zip(oxygen_umol_kg, density)], False
     else:
         # missing data necessary to create accurate density, assuming constant density using sigma-theta method
         density = gsw.rho(
@@ -87,7 +81,17 @@ def convert_umol_kg_to_mL_L(oxygen_umol_kg, longitude, latitude, temperature_C=N
             [0],
             0
         )[0]
-        return [o * density / oxygen_umol_per_ml * metre_cube_per_litre for o in oxygen_umol_kg]
+        return [o * density / oxygen_umol_per_ml * metre_cube_per_litre for o in oxygen_umol_kg], True
+
+class InletData(object):
+    def __init__(self, time, bucket, datum, longitude, latitude, computed=False, assumed_density=False):
+        self.time = time
+        self.bucket = bucket
+        self.datum = datum
+        self.longitude = longitude
+        self.latitude = latitude
+        self.computed = computed
+        self.assumed_density = assumed_density
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
@@ -95,32 +99,38 @@ class Inlet(object):
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
         self.deep_bounds = (boundaries[2], None)
-        self.temperatures = {
-            "shallow": [],
-            "middle": [],
-            "deep": [],
-        }
-        self.salinities = {
-            "shallow": [],
-            "middle": [],
-            "deep": [],
-        }
-        self.oxygens = {
-            "shallow": [],
-            "middle": [],
-            "deep": []
-        }
+        self.temperatures = []
+        self.salinities = []
+        self.oxygens = []
         self.stations = {}
         self.polygon = polygon
 
+    def get_temperature_data(self, bucket, before=None):
+        data = [[temp.time, temp.datum] for temp in self.temperatures if temp.bucket == bucket]
+        if before is not None:
+            data = [[t, d] for t, d in data if t < before]
+        return zip(*data)
+
+    def get_salinity_data(self, bucket, before=None):
+        data = [[temp.time, temp.datum] for temp in self.salinities if temp.bucket == bucket]
+        if before is not None:
+            data = [[t, d] for t, d in data if t < before]
+        return zip(*data)
+
+    def get_oxygen_data(self, bucket, before=None):
+        data = [[temp.time, temp.datum] for temp in self.oxygens if temp.bucket == bucket]
+        if before is not None:
+            data = [[t, d] for t, d in data if t < before]
+        return zip(*data)
+
     def has_temperature_data(self):
-        return len(self.temperatures["shallow"]) > 0 or len(self.temperatures["middle"]) > 0 or len(self.temperatures["deep"]) > 0
+        return len(self.temperatures) > 0
 
     def has_salinity_data(self):
-        return len(self.salinities["shallow"]) > 0 or len(self.salinities["middle"]) > 0 or len(self.salinities["deep"]) > 0
+        return len(self.salinities) > 0
 
     def has_oxygen_data(self):
-        return len(self.oxygens["shallow"]) > 0 or len(self.oxygens["middle"]) > 0 or len(self.oxygens["deep"]) > 0
+        return len(self.oxygens) > 0
 
     def contains(self, data):
         longitude = data["longitude"]
@@ -136,7 +146,15 @@ class Inlet(object):
     def is_deep(self, depth):
         return is_in_bounds(depth, *self.deep_bounds)
 
-    def add_data(self, col, times, depths, data):
+    def add_data(self, col, times, depths, data, longitude, latitude, computed=False, assumed_density=False):
+        if times.size == 1:
+            times = [times.item() for _ in range(len(data))]
+        else:
+            times = get_array(times)
+        if depths.size == 1:
+            depths = [depths.item() for _ in range(len(data))]
+        else:
+            depths = get_array(depths)
         if len(times) != len(data) or len(depths) != len(data):
             logging.warning("times, depths, and data are of different lengths")
         used = False
@@ -147,32 +165,21 @@ class Inlet(object):
             if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum) or datum > 9.9e+36:
                 continue
             if self.is_shallow(d):
-                category = "shallow"
+                category = SHALLOW
             elif self.is_middle(d):
-                category = "middle"
+                category = MIDDLE
             elif self.is_deep(d):
-                category = "deep"
+                category = DEEP
             else:
                 continue
-            col[category].append([get_datetime(t), datum])
+            col.append(InletData(get_datetime(t), category, datum, longitude, latitude, computed=computed, assumed_density=assumed_density))
             used = True
         return used
-
-    def add_data_to_col(self, col, time, depth, data):
-        if time.size == 1:
-            time = [time.item() for _ in range(len(data))]
-        else:
-            time = get_array(time)
-        if depth.size == 1:
-            depth = [depth.item() for _ in range(len(data))]
-        else:
-            depth = get_array(depth)
-        return self.add_data(col, time, depth, data)
 
     def add_temperature_data_from(self, data):
         if (temp := find_temperature_data(data)) is not None:
             if (depth := find_depth_data(data)) is not None:
-                return self.add_data_to_col(self.temperatures, data.time, depth, temp)
+                return self.add_data(self.temperatures, data.time, depth, temp, data.longitude, data.latitude)
             else:
                 warn_unknown_variable(data, "depth")
         else:
@@ -181,13 +188,22 @@ class Inlet(object):
 
     def add_salinity_data_from(self, data):
         if (sal := find_salinity_data(data)) is not None:
+            computed = False
             if sal.units.lower() in ["ppt"]:
                 sal = gsw.SP_from_SK(sal)
+                computed = True
             elif sal.units.lower() not in ["psu", "pss-78"]:
                 warn_wrong_units("PSU", sal.units, get_scalar(data.filename))
                 return False
             if (depth := find_depth_data(data)) is not None:
-                return self.add_data_to_col(self.salinities, data.time, depth, sal)
+                return self.add_data(
+                    self.salinities,
+                    data.time,
+                    depth,
+                    sal,
+                    data.longitude,
+                    data.latitude,
+                    computed=computed)
             else:
                 warn_unknown_variable(data, "depth")
         else:
@@ -196,9 +212,11 @@ class Inlet(object):
 
     def add_oxygen_data_from(self, data):
         if (oxy := find_oxygen_data(data)) is not None:
+            computed = False
+            assumed_density = False
             if oxy.units.lower() != "ml/l":
                 if oxy.units.lower() == "umol/kg":
-                    oxy = convert_umol_kg_to_mL_L(
+                    oxy, assumed_density = convert_umol_kg_to_mL_L(
                         oxy,
                         get_scalar(data.longitude),
                         get_scalar(data.latitude),
@@ -209,7 +227,15 @@ class Inlet(object):
                     warn_wrong_units("mL/L", oxy.units, get_scalar(data.filename))
                     return False
             if (depth := find_depth_data(data)) is not None:
-                return self.add_data_to_col(self.oxygens, data.time, depth, oxy)
+                return self.add_data(
+                    self.oxygens,
+                    data.time,
+                    depth,
+                    oxy,
+                    data.longitude,
+                    data.latitude,
+                    computed=computed,
+                    assumed_density=assumed_density)
             else:
                 warn_unknown_variable(data, "depth")
         else:

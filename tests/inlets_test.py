@@ -1,23 +1,8 @@
 from .context import inlets
 import pytest
 import os
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Polygon
 import xarray
-
-@pytest.mark.parametrize(
-    "name,lat,long",
-    [
-        ("Saanich Inlet",  -123.492, 48.6583),
-        ("Jervis Inlet",   -124.043, 49.8017),
-        ("Bute Inlet",     -124.969, 50.5318),
-        ("Knight Inlet",   -125.781, 50.6973),
-        ("Indian Arm",     -123.087, 49.2987),
-        ("Howe Sound",     -123.294, 49.4779),
-        ("Muchalat Inlet", -126.176, 49.6639),
-    ])
-def test_find_polygon(name, lat, long):
-    polygon = inlets.find_polygon_for(name)
-    assert Polygon(polygon).contains(Point(lat, long))
 
 @pytest.mark.parametrize(
     "value,lower,upper",
@@ -210,8 +195,8 @@ def test_convert_oxygen_data_full_data(
         temperature_C,
         salinity_SP,
         pressure_dbar)
-    assert len(actuals) == len(expecteds)
-    for actual, expected, oxygen, temperature, salinity, pressure in zip(actuals, expecteds, oxygen_umol_kg, temperature_C, salinity_SP, pressure_dbar):
+    assert len(actuals[0]) == len(expecteds)
+    for actual, expected, oxygen, temperature, salinity, pressure in zip(actuals[0], expecteds, oxygen_umol_kg, temperature_C, salinity_SP, pressure_dbar):
         assert abs(actual - expected) < 0.01, f"Failure in conversion at oxygen(umol/kg)={oxygen}, temperature(C)={temperature}, salinity(PSU)={salinity}, pressure(dbar)={pressure}"
 
 @pytest.mark.parametrize(
@@ -233,6 +218,6 @@ def test_convert_oxygen_data_missing_data(
         oxygen_umol_kg,
         longitude,
         latitude)
-    assert len(actuals) == len(expecteds)
-    for actual, expected in zip(actuals, expecteds):
+    assert len(actuals[0]) == len(expecteds)
+    for actual, expected in zip(actuals[0], expecteds):
         assert abs(actual - expected) < 0.21
