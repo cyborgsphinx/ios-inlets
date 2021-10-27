@@ -88,6 +88,12 @@ def convert_umol_kg_to_mL_L(
         density = numpy.full(len(oxygen_umol_kg), gsw.rho([0], [0], 0)[0])
     return [o * d / oxygen_umol_per_ml * metre_cube_per_litre for o, d in zip(oxygen_umol_kg, density)], assumed_density
 
+def get_data(col, bucket, before=None):
+    data = [[datum.time, datum.datum] for datum in col if datum.bucket == bucket]
+    if before is not None:
+        data = [[t, d] for t, d in data if t < before]
+    return zip(*data)
+
 class InletData(object):
     def __init__(
             self,
@@ -114,38 +120,29 @@ class Inlet(object):
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
         self.deep_bounds = (boundaries[2], None)
-        self.temperatures = []
-        self.salinities = []
-        self.oxygens = []
+        self.temperature_data = []
+        self.salinity_data = []
+        self.oxygen_data = []
         self.stations = {}
         self.polygon = polygon
 
     def get_temperature_data(self, bucket, before=None):
-        data = [[temp.time, temp.datum] for temp in self.temperatures if temp.bucket == bucket]
-        if before is not None:
-            data = [[t, d] for t, d in data if t < before]
-        return zip(*data)
+        return get_data(self.temperature_data, bucket, before)
 
     def get_salinity_data(self, bucket, before=None):
-        data = [[temp.time, temp.datum] for temp in self.salinities if temp.bucket == bucket]
-        if before is not None:
-            data = [[t, d] for t, d in data if t < before]
-        return zip(*data)
+        return get_data(self.salinity_data, bucket, before)
 
     def get_oxygen_data(self, bucket, before=None):
-        data = [[temp.time, temp.datum] for temp in self.oxygens if temp.bucket == bucket]
-        if before is not None:
-            data = [[t, d] for t, d in data if t < before]
-        return zip(*data)
+        return get_data(self.oxygen_data, bucket, before)
 
     def has_temperature_data(self):
-        return len(self.temperatures) > 0
+        return len(self.temperature_data) > 0
 
     def has_salinity_data(self):
-        return len(self.salinities) > 0
+        return len(self.salinity_data) > 0
 
     def has_oxygen_data(self):
-        return len(self.oxygens) > 0
+        return len(self.oxygen_data) > 0
 
     def contains(self, data):
         longitude = data["longitude"]
@@ -224,7 +221,7 @@ class Inlet(object):
             return False
 
         return self.add_data(
-            self.temperatures,
+            self.temperature_data,
             data.time,
             depth,
             temperature,
@@ -251,7 +248,7 @@ class Inlet(object):
             return False
 
         return self.add_data(
-            self.salinities,
+            self.salinity_data,
             data.time,
             depth,
             salinity,
@@ -286,7 +283,7 @@ class Inlet(object):
                 return False
 
         return self.add_data(
-            self.oxygens,
+            self.oxygen_data,
             data.time,
             depth,
             oxygen,
