@@ -4,6 +4,7 @@ import numpy
 import pandas
 import re
 from shapely.geometry import Point, Polygon
+import warnings
 
 SHALLOW = "shallow"
 MIDDLE = "middle"
@@ -58,37 +59,52 @@ def warn_unknown_variable(data, var):
 def warn_wrong_units(expected, actual, filename):
     logging.warning(f"Cowardly refusing to perform the conversion from {actual} to {expected} in {filename}")
 
-def convert_umol_kg_to_mL_L(oxygen_umol_kg, longitude, latitude, temperature_C=None, salinity_SP=None, pressure_dbar=None):
-    # conversion rate in (roughly) umol/mL
+def convert_umol_kg_to_mL_L(
+        oxygen_umol_kg,
+        longitude,
+        latitude,
+        temperature_C=None,
+        salinity_SP=None,
+        pressure_dbar=None):
     oxygen_umol_per_ml = 44.661
-    # 1 L = 10^-3 m^3
     metre_cube_per_litre = 0.001
     if temperature_C is not None and salinity_SP is not None and pressure_dbar is not None:
-        salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
-        # density in kg/m^3
-        density = gsw.rho(
-            salinity_SA,
-            gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
-            pressure_dbar
-        )
-        # oxygen in umol/kg
-        return [o * d / oxygen_umol_per_ml * metre_cube_per_litre for o, d in zip(oxygen_umol_kg, density)], False
+        assumed_density = False
+        with warnings.catch_warnings(record=True) as warn:
+            salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
+            density = gsw.rho(
+                salinity_SA,
+                gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
+                pressure_dbar
+            )
+            if len(warn) > 0:
+                logging.warning(f"Issues arose with {oxygen_umol_kg}, {temperature_C}, {salinity_SP}, {pressure_dbar}, assuming density to avoid invalid computations")
+                assumed_density = True
+                density = numpy.full(len(oxygen_umol_kg), gsw.rho([0], [0], 0)[0])
     else:
         # missing data necessary to create accurate density, assuming constant density using sigma-theta method
-        density = gsw.rho(
-            [0],
-            [0],
-            0
-        )[0]
-        return [o * density / oxygen_umol_per_ml * metre_cube_per_litre for o in oxygen_umol_kg], True
+        logging.info(f"Not enough data to accurately compute density. Proceeding with density as though all values are 0")
+        assumed_density = True
+        density = numpy.full(len(oxygen_umol_kg), gsw.rho([0], [0], 0)[0])
+    return [o * d / oxygen_umol_per_ml * metre_cube_per_litre for o, d in zip(oxygen_umol_kg, density)], assumed_density
 
 class InletData(object):
-    def __init__(self, time, bucket, datum, longitude, latitude, computed=False, assumed_density=False):
+    def __init__(
+            self,
+            time,
+            bucket,
+            datum,
+            longitude,
+            latitude,
+            filename,
+            computed=False,
+            assumed_density=False):
         self.time = time
         self.bucket = bucket
         self.datum = datum
         self.longitude = longitude
         self.latitude = latitude
+        self.filename = filename
         self.computed = computed
         self.assumed_density = assumed_density
 
@@ -145,23 +161,36 @@ class Inlet(object):
     def is_deep(self, depth):
         return is_in_bounds(depth, *self.deep_bounds)
 
-    def add_data(self, col, times, depths, data, longitude, latitude, computed=False, assumed_density=False):
+    def add_data(
+            self,
+            col,
+            times,
+            depths,
+            data,
+            longitude,
+            latitude,
+            filename,
+            computed=False,
+            assumed_density=False):
         if times.size == 1:
-            times = [times.item() for _ in range(len(data))]
+            times = numpy.full(len(data), times.item())
         else:
             times = get_array(times)
         if depths.size == 1:
-            depths = [depths.item() for _ in range(len(data))]
+            depths = numpy.full(len(data), depths.item())
         else:
             depths = get_array(depths)
         if len(times) != len(data) or len(depths) != len(data):
-            logging.warning("times, depths, and data are of different lengths")
+            logging.warning("Times, depths, and data are of different lengths")
         used = False
         for t, d, datum in zip(times, depths, data):
+            if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum):
+                continue
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
-            if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum) or datum > 9.9e+36:
+            if datum > 9.9e+36:
+                logging.warning(f"Data from {filename} may have been calulated poorly")
                 continue
             if self.is_shallow(d):
                 category = SHALLOW
@@ -171,7 +200,16 @@ class Inlet(object):
                 category = DEEP
             else:
                 continue
-            col.append(InletData(get_datetime(t), category, datum, longitude, latitude, computed=computed, assumed_density=assumed_density))
+            col.append(
+                InletData(
+                    get_datetime(t),
+                    category,
+                    datum,
+                    longitude,
+                    latitude,
+                    filename,
+                    computed=computed,
+                    assumed_density=assumed_density))
             used = True
         return used
 
@@ -185,7 +223,14 @@ class Inlet(object):
             warn_unknown_variable(data, "depth")
             return False
 
-        return self.add_data(self.temperatures, data.time, depth, temperature, data.longitude, data.latitude)
+        return self.add_data(
+            self.temperatures,
+            data.time,
+            depth,
+            temperature,
+            data.longitude,
+            data.latitude,
+            get_scalar(data.filename))
 
     def add_salinity_data_from(self, data):
         salinity = find_salinity_data(data)
@@ -212,6 +257,7 @@ class Inlet(object):
             salinity,
             data.longitude,
             data.latitude,
+            get_scalar(data.filename),
             computed=computed)
 
     def add_oxygen_data_from(self, data):
@@ -246,6 +292,7 @@ class Inlet(object):
             oxygen,
             data.longitude,
             data.latitude,
+            get_scalar(data.filename),
             computed=computed,
             assumed_density=assumed_density)
 
