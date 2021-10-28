@@ -1,4 +1,5 @@
 import gsw
+import itertools
 import logging
 import numpy
 import pandas
@@ -123,7 +124,6 @@ class Inlet(object):
         self.temperature_data = []
         self.salinity_data = []
         self.oxygen_data = []
-        self.stations = {}
         self.polygon = polygon
 
     def get_temperature_data(self, bucket, before=None):
@@ -143,6 +143,18 @@ class Inlet(object):
 
     def has_oxygen_data(self):
         return len(self.oxygen_data) > 0
+
+    def get_station_data(self, before=None):
+        temperature_data = filter(lambda x: x.time.year < before.year, self.temperature_data) if before is not None else self.temperature_data
+        salinity_data = filter(lambda x: x.time.year < before.year, self.salinity_data) if before is not None else self.salinity_data
+        oxygen_data = filter(lambda x: x.time.year < before.year, self.oxygen_data) if before is not None else self.oxygen_data
+        stations = {}
+        for datum in itertools.chain(temperature_data, salinity_data, oxygen_data):
+            year = datum.time.year
+            if year not in stations:
+                stations[year] = set()
+            stations[year].add(datum.filename)
+        return stations
 
     def contains(self, data):
         longitude = data["longitude"]
@@ -179,7 +191,7 @@ class Inlet(object):
             depths = get_array(depths)
         if len(times) != len(data) or len(depths) != len(data):
             logging.warning("Times, depths, and data are of different lengths")
-        used = False
+
         for t, d, datum in zip(times, depths, data):
             if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum):
                 continue
@@ -207,20 +219,18 @@ class Inlet(object):
                     filename,
                     computed=computed,
                     assumed_density=assumed_density))
-            used = True
-        return used
 
     def add_temperature_data_from(self, data):
         temperature = find_temperature_data(data)
         if temperature is None:
             warn_unknown_variable(data, "temperature")
-            return False
+            return
         depth = find_depth_data(data)
         if depth is None:
             warn_unknown_variable(data, "depth")
-            return False
+            return
 
-        return self.add_data(
+        self.add_data(
             self.temperature_data,
             data.time,
             depth,
@@ -233,11 +243,11 @@ class Inlet(object):
         salinity = find_salinity_data(data)
         if salinity is None:
             warn_unknown_variable(data, "salinity")
-            return False
+            return
         depth = find_depth_data(data)
         if depth is None:
             warn_unknown_variable(data, "depth")
-            return False
+            return
 
         computed = False
         if salinity.units.lower() in ["ppt"]:
@@ -245,9 +255,9 @@ class Inlet(object):
             computed = True
         elif salinity.units.lower() not in ["psu", "pss-78"]:
             warn_wrong_units("PSU", salinity.units, get_scalar(data.filename))
-            return False
+            return
 
-        return self.add_data(
+        self.add_data(
             self.salinity_data,
             data.time,
             depth,
@@ -261,11 +271,11 @@ class Inlet(object):
         oxygen = find_oxygen_data(data)
         if oxygen is None:
             warn_unknown_variable(data, "oxygen")
-            return False
+            return
         depth = find_depth_data(data)
         if depth is None:
             warn_unknown_variable(data, "depth")
-            return False
+            return
 
         computed = False
         assumed_density = False
@@ -280,9 +290,9 @@ class Inlet(object):
                     find_pressure_data(data))
             else:
                 warn_wrong_units("mL/L", oxygen.units, get_scalar(data.filename))
-                return False
+                return
 
-        return self.add_data(
+        self.add_data(
             self.oxygen_data,
             data.time,
             depth,
@@ -293,16 +303,7 @@ class Inlet(object):
             computed=computed,
             assumed_density=assumed_density)
 
-    def add_station_from(self, data):
-        year = get_datetime(data.time.head(1).item()).year
-        if year not in self.stations:
-            self.stations[year] = set()
-        self.stations[year].add(get_scalar(data.filename))
-
     def add_data_from(self, data):
-        if self.add_temperature_data_from(data):
-            self.add_station_from(data)
-        if self.add_salinity_data_from(data):
-            self.add_station_from(data)
-        if self.add_oxygen_data_from(data):
-            self.add_station_from(data)
+        self.add_temperature_data_from(data)
+        self.add_salinity_data_from(data)
+        self.add_oxygen_data_from(data)

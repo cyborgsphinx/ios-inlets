@@ -53,7 +53,7 @@ def chart_oxygen_data(inlet):
 def chart_stations(inlet):
     plt.clf()
     data = []
-    for year, stations in inlet.stations.items():
+    for year, stations in inlet.get_station_data().items():
         data.extend([year for _ in range(len(stations))])
     n_bins = max(data) - min(data) + 1
     plt.hist(data, bins=n_bins, align="left", label=f"Number of files {len(data)}")
@@ -65,6 +65,7 @@ def normalize(string):
     return string.strip().lower().replace(' ', '-')
 
 def do_chart(inlet, kind: str, show_figure: bool, chart_fn):
+    print(f"Producing {kind} plot for {inlet.name}")
     chart_fn(inlet)
     if show_figure:
         plt.show()
