@@ -1,5 +1,4 @@
 import argparse
-import datetime
 import inlets
 import json
 import fnmatch
@@ -12,16 +11,14 @@ import xarray
 
 PICKLE_NAME = "inlets.pickle"
 
-END = datetime.datetime(2000, 1, 1)
-
 def chart_temperatures(inlet):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
-    shallow_x, shallow_y = inlet.get_temperature_data(inlets.SHALLOW, before=END)
+    shallow_x, shallow_y = inlet.get_temperature_data(inlets.SHALLOW)
     plt.plot(shallow_x, shallow_y, "xg", label=f"{inlet.shallow_bounds[0]}m-{inlet.shallow_bounds[1]}m")
-    middle_x, middle_y = inlet.get_temperature_data(inlets.MIDDLE, before=END)
+    middle_x, middle_y = inlet.get_temperature_data(inlets.MIDDLE)
     plt.plot(middle_x, middle_y, "+m", label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m")
-    deep_x, deep_y = inlet.get_temperature_data(inlets.DEEP, before=END)
+    deep_x, deep_y = inlet.get_temperature_data(inlets.DEEP)
     plt.plot(deep_x, deep_y, "xb", label=f">{inlet.deep_bounds[0]}m")
     plt.ylabel("Temperature (C)")
     plt.legend()
@@ -30,11 +27,11 @@ def chart_temperatures(inlet):
 def chart_salinities(inlet):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
-    shallow_x, shallow_y = inlet.get_salinity_data(inlets.SHALLOW, before=END)
+    shallow_x, shallow_y = inlet.get_salinity_data(inlets.SHALLOW)
     plt.plot(shallow_x, shallow_y, "xg", label=f"{inlet.shallow_bounds[0]}m-{inlet.shallow_bounds[1]}m")
-    middle_x, middle_y = inlet.get_salinity_data(inlets.MIDDLE, before=END)
+    middle_x, middle_y = inlet.get_salinity_data(inlets.MIDDLE)
     plt.plot(middle_x, middle_y, "+m", label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m")
-    deep_x, deep_y = inlet.get_salinity_data(inlets.DEEP, before=END)
+    deep_x, deep_y = inlet.get_salinity_data(inlets.DEEP)
     plt.plot(deep_x, deep_y, "xb", label=f">{inlet.deep_bounds[0]}m")
     plt.ylabel("Salinity (PSU)")
     plt.legend()
@@ -43,11 +40,11 @@ def chart_salinities(inlet):
 def chart_oxygen_data(inlet):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
-    shallow_x, shallow_y = inlet.get_oxygen_data(inlets.SHALLOW, before=END)
+    shallow_x, shallow_y = inlet.get_oxygen_data(inlets.SHALLOW)
     plt.plot(shallow_x, shallow_y, "xg", label=f"{inlet.shallow_bounds[0]}m-{inlet.shallow_bounds[1]}m")
-    middle_x, middle_y = inlet.get_oxygen_data(inlets.MIDDLE, before=END)
+    middle_x, middle_y = inlet.get_oxygen_data(inlets.MIDDLE)
     plt.plot(middle_x, middle_y, "+m", label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m")
-    deep_x, deep_y = inlet.get_oxygen_data(inlets.DEEP, before=END)
+    deep_x, deep_y = inlet.get_oxygen_data(inlets.DEEP)
     plt.plot(deep_x, deep_y, "xb", label=f">{inlet.deep_bounds[0]}m")
     plt.ylabel("DO (ml/l)")
     plt.legend()
@@ -57,8 +54,6 @@ def chart_stations(inlet):
     plt.clf()
     data = []
     for year, stations in inlet.stations.items():
-        if year > END.year:
-            continue
         data.extend([year for _ in range(len(stations))])
     n_bins = max(data) - min(data) + 1
     plt.hist(data, bins=n_bins, align="left", label=f"Number of files {len(data)}")
