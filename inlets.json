@@ -3,6 +3,10 @@
   "features": [
     {
       "type": "Feature",
+      "properties": {
+        "name": "Saanich Inlet",
+        "boundaries": [145, 170, 190]
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -18,14 +22,14 @@
             [-123.23776245117189, 48.70319715481828]
           ]
         ]
-      },
-      "properties": {
-        "name": "Saanich Inlet",
-        "boundaries": [145, 170, 190]
       }
     },
     {
       "type": "Feature",
+      "properties": {
+        "name": "Jervis Inlet",
+        "boundaries": [400, 500, 600]
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -39,14 +43,14 @@
             [-123.71704101562499, 50.1038453216394]
           ]
         ]
-      },
-      "properties": {
-        "name": "Jervis Inlet",
-        "boundaries": [400, 500, 600]
       }
     },
     {
       "type": "Feature",
+      "properties": {
+        "name": "Bute Inlet",
+        "boundaries": [400, 500, 600]
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -62,14 +66,14 @@
             [-124.85961914062501, 50.94544969875718]
           ]
         ]
-      },
-      "properties": {
-        "name": "Bute Inlet",
-        "boundaries": [400, 500, 600]
       }
     },
     {
       "type": "Feature",
+      "properties": {
+        "name": "Knight Inlet",
+        "boundaries": [300, 400, 500]
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -85,14 +89,14 @@
             [-125.6451416015625, 51.10697105503078]
           ]
         ]
-      },
-      "properties": {
-        "name": "Knight Inlet",
-        "boundaries": [300, 400, 500]
       }
     },
     {
       "type": "Feature",
+      "properties": {
+        "name": "Indian Arm",
+        "boundaries": [100, 150, 200]
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -106,14 +110,14 @@
             [-122.82028198242188, 49.27497287599639]
           ]
         ]
-      },
-      "properties": {
-        "name": "Indian Arm",
-        "boundaries": [100, 150, 200]
       }
     },
     {
       "type": "Feature",
+      "properties": {
+        "name": "Howe Sound",
+        "boundaries": [150, 200, 250]
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -125,14 +129,14 @@
             [-123.04275512695312, 49.689843303232635]
           ]
         ]
-      },
-      "properties": {
-        "name": "Howe Sound",
-        "boundaries": [150, 200, 250]
       }
     },
     {
       "type": "Feature",
+      "properties": {
+        "name": "Muchalat Inlet",
+        "boundaries": [200, 250, 300]
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -145,10 +149,6 @@
             [-126.5576934814453, 49.528328218174835]
           ]
         ]
-      },
-      "properties": {
-        "name": "Muchalat Inlet",
-        "boundaries": [200, 250, 300]
       }
     }
   ]
