@@ -83,7 +83,7 @@ def main():
         with open(PICKLE_NAME, mode="rb") as f:
             inlet_s = pickle.load(f)
     else:
-        with open("inlets.json") as f:
+        with open("inlets.geojson") as f:
             contents = json.load(f)["features"]
             for content in contents:
                 name = content["properties"]["name"]
