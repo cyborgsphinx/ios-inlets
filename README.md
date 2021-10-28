@@ -12,14 +12,14 @@ Inlet polygons defined using https://geojson.io
 
 ## Tasks
 
-- [.] Reproduce the original graphs
+- [O] Reproduce the original graphs
   - [o] Reproduce one graph (Saanich Inlet temperatures)
     - [X] Get all data associated with Saanich Inlet
     - [X] Collect data into depth buckets
     - [X] Plot data as date recorded (x) against temperature (y)
     - [ ] Figure out different sources
       - [ ] Find missing sources
-  - [ ] Extend script for salinity/oxidization
-  - [ ] Extend script for other inlets
-- [ ] Extend graph with new data
+  - [X] Extend script for salinity/oxidization
+  - [X] Extend script for other inlets
+- [X] Extend graph with new data
 - [ ] Automate graph creation
