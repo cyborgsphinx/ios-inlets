@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pickle
 import os
 from shapely.geometry import Polygon
+from tqdm import tqdm
 import xarray
 
 PICKLE_NAME = "inlets.pickle"
@@ -91,7 +92,7 @@ def main():
                 inlet_s.append(inlets.Inlet(name, polygon, boundaries))
         for root, _, files in os.walk("data"):
             #print(root, "-", dirs)
-            for item in fnmatch.filter(files, "*.nc"):
+            for item in tqdm(fnmatch.filter(files, "*.nc"), desc=root):
                 #print(". .", item)
                 file_name = os.path.join(root, item)
                 data = xarray.open_dataset(file_name)

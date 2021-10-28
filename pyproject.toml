@@ -13,6 +13,7 @@ scipy = "^1.7.1"
 Shapely = "^1.7.1"
 PyGObject = "^3.42.0"
 gsw = "^3.4.0"
+tqdm = "^4.62.3"
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
