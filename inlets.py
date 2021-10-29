@@ -192,6 +192,7 @@ class Inlet(object):
         if len(times) != len(data) or len(depths) != len(data):
             logging.warning(f"Data from {filename} contains times, depths, and data of different lengths")
 
+        once = [False] * 3
         for t, d, datum in zip(times, depths, data):
             if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum):
                 continue
@@ -199,13 +200,19 @@ class Inlet(object):
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
             if datum > 9.9e+36:
-                logging.warning(f"Data from {filename} may have been calulated poorly")
+                if not once[0]:
+                    logging.warning(f"Data from {filename} may have been calulated poorly")
+                    once[0] = True
                 continue
             if d < 0:
-                logging.warning(f"Data from {filename} includes negative depth, and may have other incorrect data")
+                if not once[1]:
+                    logging.warning(f"Data from {filename} includes negative depth, and may have other incorrect data")
+                    once[1] = True
                 continue
             if datum == -99.0:
-                logging.warning(f"Data from {filename} has value -99, which is likely a standin for NaN")
+                if not once[2]:
+                    logging.warning(f"Data from {filename} has value -99, which is likely a standin for NaN")
+                    once[2] = True
                 continue
             if self.is_shallow(d):
                 category = SHALLOW
