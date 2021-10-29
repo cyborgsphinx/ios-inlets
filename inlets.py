@@ -190,7 +190,7 @@ class Inlet(object):
         else:
             depths = get_array(depths)
         if len(times) != len(data) or len(depths) != len(data):
-            logging.warning("Times, depths, and data are of different lengths")
+            logging.warning(f"Data from {filename} contains times, depths, and data of different lengths")
 
         for t, d, datum in zip(times, depths, data):
             if numpy.isnan(t) or numpy.isnan(d) or numpy.isnan(datum):
@@ -203,6 +203,9 @@ class Inlet(object):
                 continue
             if d < 0:
                 logging.warning(f"Data from {filename} includes negative depth, and may have other incorrect data")
+                continue
+            if datum == -99.0:
+                logging.warning(f"Data from {filename} has value -99, which is likely a standin for NaN")
                 continue
             if self.is_shallow(d):
                 category = SHALLOW
