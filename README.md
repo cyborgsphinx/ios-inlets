@@ -6,7 +6,9 @@ The charts are visible at
 - [Annual averaged deep water properties for inlets](https://www.pac.dfo-mpo.gc.ca/science/oceans/bc-inlets-mer-de-bras-cb/water-prop-eau-eng.html)
 - [Long term trends in deep water properties of BC inlets](https://www.pac.dfo-mpo.gc.ca/science/oceans/bc-inlets-mer-de-bras-cb/index-eng.html)
 
-The backing data can be found at [the waterproperties archive](https://www.waterproperties.ca/osd_data_archive/netCDF_Data/) and can be downloaded to `data/` for offline access.
+The backing data can be found at [the waterproperties archive](https://www.waterproperties.ca/osd_data_archive/netCDF_Data/) and can be downloaded to `data/` for offline access:
+
+    $ wget -nH --cut-dirs=2 -r -N -P data https://www.waterproperties.ca/osd_data_archive/netCDF_Data/
 
 Inlet polygons defined using https://geojson.io
 
