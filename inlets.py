@@ -201,6 +201,9 @@ class Inlet(object):
             if datum > 9.9e+36:
                 logging.warning(f"Data from {filename} may have been calulated poorly")
                 continue
+            if d < 0:
+                logging.warning(f"Data from {filename} includes negative depth, and may have other incorrect data")
+                continue
             if self.is_shallow(d):
                 category = SHALLOW
             elif self.is_middle(d):
