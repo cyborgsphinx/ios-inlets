@@ -93,7 +93,7 @@ def get_data(col, bucket, before=None):
     data = [[datum.time, datum.datum] for datum in col if datum.bucket == bucket]
     if before is not None:
         data = [[t, d] for t, d in data if t < before]
-    return zip(*data)
+    return zip(*data) if len(data) > 0 else [[], []]
 
 class InletData(object):
     def __init__(
