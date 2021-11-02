@@ -8,7 +8,7 @@ The charts are visible at
 
 The backing data can be found at [the waterproperties archive](https://www.waterproperties.ca/osd_data_archive/netCDF_Data/) and can be downloaded to `data/` for offline access:
 
-    $ wget -nH --cut-dirs=2 -r -N -P data https://www.waterproperties.ca/osd_data_archive/netCDF_Data/
+    $ wget -m -np --cut-dirs=2 -P data https://www.waterproperties.ca/osd_data_archive/
 
 Inlet polygons defined using https://geojson.io
 

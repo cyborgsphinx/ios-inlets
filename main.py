@@ -125,6 +125,8 @@ def main():
                 polygon = Polygon(content["geometry"]["coordinates"][0])
                 inlet_list.append(inlets.Inlet(name, polygon, boundaries))
         for root, _, files in os.walk("data"):
+            if any(filter(lambda s: s.startswith("www."), root.split("/"))):
+                continue
             for item in tqdm(fnmatch.filter(files, "*.nc"), desc=root):
                 file_name = os.path.join(root, item)
                 data = xarray.open_dataset(file_name)
