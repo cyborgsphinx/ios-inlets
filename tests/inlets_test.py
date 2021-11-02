@@ -4,6 +4,9 @@ import os
 from shapely.geometry import Polygon
 import xarray
 
+def data_path(source):
+    return os.path.join(os.path.dirname(__file__), "..", "data", "netCDF_Data", source)
+
 @pytest.mark.parametrize(
     "value,lower,upper",
     [
@@ -42,7 +45,7 @@ def test_find_any(source, attrs, expected):
         pytest.param(os.path.join("BOT", "2004-004-0046.che.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_temperature_data(source):
-    data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
+    data = xarray.open_dataset(data_path(source))
     assert inlets.find_temperature_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -54,7 +57,7 @@ def test_find_temperature_data(source):
         pytest.param(os.path.join("BOT", "1978-033-0013.bot.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_salinity_data(source):
-    data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
+    data = xarray.open_dataset(data_path(source))
     assert inlets.find_salinity_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -66,7 +69,7 @@ def test_find_salinity_data(source):
         pytest.param(os.path.join("BOT", "1976-021-0005.bot.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_oxygen_data(source):
-    data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
+    data = xarray.open_dataset(data_path(source))
     assert inlets.find_oxygen_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -86,7 +89,7 @@ def test_find_oxygen_data(source):
         pytest.param(os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_depth_data(source):
-    data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
+    data = xarray.open_dataset(data_path(source))
     assert inlets.find_depth_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -118,7 +121,7 @@ def test_inlet_contains(polygon, point):
     ])
 def test_inlet_add_temperature(source):
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
-    data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
+    data = xarray.open_dataset(data_path(source))
     inlet.add_temperature_data_from(data)
     assert inlet.has_temperature_data()
 
@@ -140,7 +143,7 @@ def test_inlet_add_temperature(source):
     ])
 def test_inlet_add_salinity(source):
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
-    data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
+    data = xarray.open_dataset(data_path(source))
     inlet.add_salinity_data_from(data)
     assert inlet.has_salinity_data()
 
@@ -163,7 +166,7 @@ def test_inlet_add_salinity(source):
     ])
 def test_inlet_add_oxygen(source):
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
-    data = xarray.open_dataset(os.path.join(os.path.dirname(__file__), "..", "data", source))
+    data = xarray.open_dataset(data_path(source))
     inlet.add_oxygen_data_from(data)
     assert inlet.has_oxygen_data()
 
