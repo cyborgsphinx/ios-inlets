@@ -1,5 +1,6 @@
 import argparse
 import inlets
+import ios_data_transform as idt
 import json
 import fnmatch
 import logging
@@ -107,6 +108,34 @@ def chart_salinity_anomalies(inlet_list: list[inlets.Inlet], show_figure: bool):
     else:
         plt.savefig(os.path.join("figures", f"deep-water-salinity-anomalies.png"))
 
+
+def import_data(data_obj):
+    data_obj.start_dateobj, data_obj.start_date = data_obj.get_date(opt='start')
+    data_obj.location = data_obj.get_location()
+    data_obj.channels = data_obj.get_channels()
+    #data_obj.comments = data_obj.get_comments_like('COMMENTS')
+    #data_obj.remarks = data_obj.get_comments_like('REMARKS')
+    #data_obj.administration = data_obj.get_section('ADMINISTRATION')
+    #data_obj.instrument = data_obj.get_section('INSTRUMENT')
+    data_obj.channel_details = data_obj.get_channel_detail()
+    if data_obj.channel_details is None:
+        print("Unable to get channel details from header...")
+    # try reading file using format specified in 'FORMAT'
+    try:
+        data_obj.data = data_obj.get_data(formatline=data_obj.file['FORMAT'])
+    except Exception:
+        print("Could not read file using 'FORMAT' description...")
+        data_obj.data = None
+
+    if data_obj.data is None:
+        try:
+            # data_obj.channel_details = data_obj.get_channel_detail()
+            data_obj.data = data_obj.get_data(formatline=None)
+        except Exception:
+            return False
+
+    return True
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--from-saved", action="store_true")
@@ -124,9 +153,8 @@ def main():
                 boundaries = content["properties"]["boundaries"]
                 polygon = Polygon(content["geometry"]["coordinates"][0])
                 inlet_list.append(inlets.Inlet(name, polygon, boundaries))
-        for root, _, files in os.walk("data"):
-            if any(filter(lambda s: s.startswith("www."), root.split("/"))):
-                continue
+
+        for root, _, files in os.walk(os.path.join("data", "netCDF_Data")):
             for item in tqdm(fnmatch.filter(files, "*.nc"), desc=root):
                 file_name = os.path.join(root, item)
                 data = xarray.open_dataset(file_name)
@@ -137,6 +165,27 @@ def main():
                         except:
                             logging.exception(f"Exception occurred in {file_name}")
                             raise
+
+        shell_exts = ["bot", "che", "adcp", "cdt", "cur", "ubc", "med"]
+        # make a list of all elements in shell_exts followed by their str.upper() versions
+        exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
+        for root, _, files in os.walk("data"):
+            for ext in exts:
+                for item in fnmatch.filter(files, f"*.{ext}"):
+                    file_name = os.path.join(root, item)
+                    try:
+                        shell = idt.ObsFile.ObsFile(file_name, False)
+                        if not import_data(shell):
+                            raise RuntimeError("Reading data failed")
+                    except Exception as e:
+                        logging.exception(f"Exception occurred reading data from {file_name}, making it unsuitable to pull data from: {e}")
+                        continue
+                    for inlet in inlet_list:
+                        if inlet.contains(shell.location):
+                            # use item instead of file_name because the netcdf files don't store path information
+                            # they also do not store the .nc extension, so this should be reasonable
+                            if not inlet.has_data_from(normalize(item)):
+                                print(f"{file_name} contains unused data:\n{shell.data}")
         with open(PICKLE_NAME, mode="wb") as f:
             pickle.dump(inlet_list, f)
     for inlet in inlet_list:

@@ -111,7 +111,7 @@ class InletData(object):
         self.datum = datum
         self.longitude = longitude
         self.latitude = latitude
-        self.filename = filename
+        self.filename = filename.lower()
         self.computed = computed
         self.assumed_density = assumed_density
 
@@ -144,6 +144,12 @@ class Inlet(object):
     def has_oxygen_data(self):
         return len(self.oxygen_data) > 0
 
+    def has_data_from(self, file_name, before=None):
+        for datum in itertools.chain(self.temperature_data, self.salinity_data, self.oxygen_data):
+            if datum.filename == file_name:
+                return True
+        return False
+
     def get_station_data(self, before=None):
         temperature_data = filter(lambda x: x.time.year < before.year, self.temperature_data) if before is not None else self.temperature_data
         salinity_data = filter(lambda x: x.time.year < before.year, self.salinity_data) if before is not None else self.salinity_data
@@ -157,8 +163,28 @@ class Inlet(object):
         return stations
 
     def contains(self, data):
-        longitude = data["longitude"]
-        latitude = data["latitude"]
+        longitude, latitude = None, None
+        if isinstance(data, dict):
+            if "longitude" in data:
+                longitude = data["longitude"]
+            elif "LONGITUDE" in data:
+                longitude = data["LONGITUDE"]
+            else:
+                logging.warning("data does not contain longitude information")
+                return False
+            if "latitude" in data:
+                latitude = data["latitude"]
+            elif "LATITUDE" in data:
+                latitude = data["LATITUDE"]
+            else:
+                logging.warning("data does not contain latitude information")
+                return False
+        else:
+            if not hasattr(data, "longitude") or not hasattr(data, "latitude"):
+                logging.warning("data does not contain full coordinate information")
+                return False
+            longitude = data["longitude"]
+            latitude = data["latitude"]
         return self.polygon.contains(Point(longitude, latitude))
 
     def is_shallow(self, depth):
@@ -201,7 +227,7 @@ class Inlet(object):
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
             if datum > 9.9e+36:
                 if not once[0]:
-                    logging.warning(f"Data from {filename} may have been calulated poorly")
+                    logging.warning(f"Data from {filename} is larger than 9.9e+36, it may have been calulated poorly")
                     once[0] = True
                 continue
             if d < 0:
