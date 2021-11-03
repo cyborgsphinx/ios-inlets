@@ -174,6 +174,14 @@ optional = false
 python-versions = ">=2.7"
 
 [[package]]
+name = "fortranformat"
+version = "1.0.1"
+description = "Mimics Fortran textual IO in Python"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "gsw"
 version = "3.4.0"
 description = "Gibbs Seawater Oceanographic Package of TEOS-10"
@@ -191,6 +199,27 @@ description = "iniconfig: brain-dead simple config-ini parsing"
 category = "dev"
 optional = false
 python-versions = "*"
+
+[[package]]
+name = "ios_data_transform"
+version = "0.0.1"
+description = ""
+category = "main"
+optional = false
+python-versions = "*"
+develop = false
+
+[package.dependencies]
+fortranformat = "*"
+gsw = "*"
+netCDF4 = "*"
+numpy = "*"
+pytz = "*"
+shapely = "*"
+
+[package.source]
+type = "directory"
+url = "cioos-siooc_data_transform/cioos_data_transform/ios_data_transform"
 
 [[package]]
 name = "ipykernel"
@@ -1084,7 +1113,7 @@ viz = ["matplotlib", "seaborn", "nc-time-axis"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.10"
-content-hash = "de74cca7c08ea47528af4146ac0c5d47da399eab2a194b220f0a74f7dc2805c8"
+content-hash = "546b1c2e991924aea413b3809cd0b8dd8688f0c38b829b118899e69b72b2da66"
 
 [metadata.files]
 appnope = [
@@ -1254,6 +1283,10 @@ entrypoints = [
     {file = "entrypoints-0.3-py2.py3-none-any.whl", hash = "sha256:589f874b313739ad35be6e0cd7efde2a4e9b6fea91edcc34e58ecbb8dbe56d19"},
     {file = "entrypoints-0.3.tar.gz", hash = "sha256:c70dd71abe5a8c85e55e12c19bd91ccfeec11a6e99044204511f9ed547d48451"},
 ]
+fortranformat = [
+    {file = "fortranformat-1.0.1-py2-none-any.whl", hash = "sha256:bfa14f5b6b62e90cc02852dcca5b6ea8caf782725be44b0ca39868e462ac88c8"},
+    {file = "fortranformat-1.0.1.tar.gz", hash = "sha256:730b4f56ef64d7ec18537b357e92c7b17aec7e24e3d1e32c122c31dbdd64ef2b"},
+]
 gsw = [
     {file = "gsw-3.4.0-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:c355bab42a4c2a8b3041c4b35fca371375ebddc0e48cbce6b1322e95451be0a7"},
     {file = "gsw-3.4.0-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:2f854e8cd6b25f0d4ada2f432c232d484d116d13f4a0ad1c54dc335ef2bcdfc8"},
@@ -1270,6 +1303,7 @@ iniconfig = [
     {file = "iniconfig-1.1.1-py2.py3-none-any.whl", hash = "sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3"},
     {file = "iniconfig-1.1.1.tar.gz", hash = "sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32"},
 ]
+ios_data_transform = []
 ipykernel = [
     {file = "ipykernel-6.4.2-py3-none-any.whl", hash = "sha256:5657a0ab3d9a9eba3eb78b261771d22158388f182e85668c536c1a9932b80e03"},
     {file = "ipykernel-6.4.2.tar.gz", hash = "sha256:0140f78bfd60e47e387b6433b4bed0f228986420dc4d5fac0e251c9711e23e29"},
