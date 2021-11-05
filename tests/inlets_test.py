@@ -1,4 +1,5 @@
 from .context import inlets
+import numpy
 import pytest
 import os
 from shapely.geometry import Polygon
@@ -122,7 +123,7 @@ def test_inlet_contains(polygon, point):
 def test_inlet_add_temperature(source):
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
     data = xarray.open_dataset(data_path(source))
-    inlet.add_temperature_data_from(data)
+    inlet.add_data_from_netcdf(data)
     assert inlet.has_temperature_data()
 
 @pytest.mark.parametrize(
@@ -144,7 +145,7 @@ def test_inlet_add_temperature(source):
 def test_inlet_add_salinity(source):
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
     data = xarray.open_dataset(data_path(source))
-    inlet.add_salinity_data_from(data)
+    inlet.add_data_from_netcdf(data)
     assert inlet.has_salinity_data()
 
 @pytest.mark.parametrize(
@@ -167,7 +168,7 @@ def test_inlet_add_salinity(source):
 def test_inlet_add_oxygen(source):
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
     data = xarray.open_dataset(data_path(source))
-    inlet.add_oxygen_data_from(data)
+    inlet.add_data_from_netcdf(data)
     assert inlet.has_oxygen_data()
 
 @pytest.mark.parametrize(
@@ -224,3 +225,13 @@ def test_convert_oxygen_data_missing_data(
     assert len(actuals[0]) == len(expecteds)
     for actual, expected in zip(actuals[0], expecteds):
         assert abs(actual - expected) < 0.21
+
+@pytest.mark.parametrize(
+    "data,placeholder",
+    [
+        ([0.0, 1.0, -99.0], -99),
+        pytest.param([0.0, 1.0, 2.0], -99, marks=pytest.mark.xfail),
+    ]
+)
+def test_reinsert_nan(data, placeholder):
+    assert any(numpy.isnan(inlets.reinsert_nan(data, placeholder)))
