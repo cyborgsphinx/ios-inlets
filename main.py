@@ -159,7 +159,7 @@ def main():
                                 logging.exception(f"Exception occurred in {file_name}")
                                 raise
 
-        shell_exts = ["bot", "che", "adcp", "cdt", "cur", "ubc", "med"]
+        shell_exts = ["bot", "che", "cdt", "ubc", "med"]
         # make a list of all elements in shell_exts followed by their str.upper() versions
         exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
         for root, _, files in os.walk("data"):
