@@ -22,24 +22,25 @@ def is_in_bounds(val, lower, upper):
 def get_datetime(d):
     return pandas.Timestamp(d).to_pydatetime()
 
-def reinsert_nan(data, placeholder):
+def reinsert_nan(data, placeholder, length=None):
     return numpy.fromiter(
-        map(lambda x: numpy.nan if x == placeholder else x, data),
+        (numpy.nan if x == placeholder else x for x in data),
         float,
-        count=len(data))
+        count=len(data) if length is None else length)
+
+def get_scalar(array):
+    return array.item()
 
 def get_array(array):
     if isinstance(array, xarray.DataArray):
         values = array.values
-        return reinsert_nan(values, -99.0) if values.dtype == numpy.dtype("float64") else values
+        if values.size == 1:
+            values = numpy.full(1, get_scalar(values))
+        return reinsert_nan(values, -99.0) if values.dtype.kind == "f" else values
     elif isinstance(array, (float, numpy.datetime64)):
         return numpy.full(1, array)
     else:
-        print("get_array called with", array)
         return array
-
-def get_scalar(array):
-    return array.item()
 
 def find_first(source: list[str], prefix: str):
     for i, s in enumerate(source):
@@ -85,10 +86,14 @@ def is_valid_field(min_val, max_val):
     blank = min_val.strip() == "' '" or max_val.strip() == "' '"
     return blank or to_float(min_val) <= to_float(max_val)
 
-def extract_data(source, index, min_vals, max_vals, info=None):
+def get_pad_value(info, index):
+    if index < 0 or info is None:
+        return None
+    return to_float(info["Pad"][index])
+
+def extract_data(source, index, min_vals, max_vals, replace):
     if index >= 0 and is_valid_field(min_vals[index], max_vals[index]):
-        replace = to_float(info["Pad"][index]) if info is not None else None
-        return reinsert_nan([to_float(d[index]) for d in source], replace)
+        return reinsert_nan((to_float(d[index]) for d in source), replace, length=len(source))
     else:
         return None
 
@@ -252,6 +257,7 @@ class Inlet(object):
             longitude,
             latitude,
             filename,
+            placeholder=-99.0,
             computed=False,
             assumed_density=False):
         times = extend_arr(times, len(data))
@@ -272,9 +278,9 @@ class Inlet(object):
                     logging.warning(f"Data from {filename} is larger than 9.9e+36, it may have been calulated poorly")
                     once[0] = True
                 continue
-            if datum == -99.0:
+            if datum == placeholder:
                 if not once[1]:
-                    logging.warning(f"Data from {filename} has value -99, which is likely a standin for NaN")
+                    logging.warning(f"Data from {filename} has value {placeholder}, which is likely a standin for NaN")
                     once[1] = True
                 continue
             if self.is_shallow(d):
@@ -304,7 +310,8 @@ class Inlet(object):
             time,
             longitude,
             latitude,
-            filename):
+            filename,
+            placeholder=-99.0):
         if data is None or depth is None:
             return
 
@@ -314,7 +321,8 @@ class Inlet(object):
             data,
             longitude,
             latitude,
-            filename))
+            filename,
+            placeholder=placeholder))
 
     def add_salinity_data(
             self,
@@ -324,7 +332,8 @@ class Inlet(object):
             time,
             longitude,
             latitude,
-            filename):
+            filename,
+            placeholder=-99.0):
         if data is None or depth is None:
             return
 
@@ -343,6 +352,7 @@ class Inlet(object):
             longitude,
             latitude,
             filename,
+            placeholder=placeholder,
             computed=computed))
 
     def add_oxygen_data(
@@ -356,7 +366,8 @@ class Inlet(object):
             pressure,
             longitude,
             latitude,
-            filename):
+            filename,
+            placeholder=-99.0):
         if data is None or depth is None:
             return
 
@@ -383,6 +394,7 @@ class Inlet(object):
             longitude,
             latitude,
             filename,
+            placeholder=placeholder,
             computed=computed,
             assumed_density=assumed_density))
 
@@ -445,21 +457,26 @@ class Inlet(object):
 
         depth_idx = find_first(names, "Depth")
         if depth_idx < 0:
-            logging.warning(f"Shell data from {data.filename} lacks depth information. Skipping.")
+            logging.info(f"Shell data from {data.filename} lacks depth information. Skipping.")
             return
-        depth_data = extract_data(data.data, depth_idx, min_vals, max_vals, data.channel_details)
+        depth_pad = get_pad_value(data.channel_details, depth_idx)
+        depth_data = extract_data(data.data, depth_idx, min_vals, max_vals, depth_pad)
 
         temperature_idx = find_first(names, "Temperature")
-        temperature_data = extract_data(data.data, temperature_idx, min_vals, max_vals, data.channel_details)
+        temperature_pad = get_pad_value(data.channel_details, temperature_idx)
+        temperature_data = extract_data(data.data, temperature_idx, min_vals, max_vals, temperature_pad)
 
         salinity_idx = find_first(names, "Salinity")
-        salinity_data = extract_data(data.data, salinity_idx, min_vals, max_vals, data.channel_details)
+        salinity_pad = get_pad_value(data.channel_details, salinity_idx)
+        salinity_data = extract_data(data.data, salinity_idx, min_vals, max_vals, salinity_pad)
 
         oxygen_idx = find_first(names, "Oxygen")
-        oxygen_data = extract_data(data.data, oxygen_idx, min_vals, max_vals, data.channel_details)
+        oxygen_pad = get_pad_value(data.channel_details, oxygen_idx)
+        oxygen_data = extract_data(data.data, oxygen_idx, min_vals, max_vals, oxygen_pad)
 
         pressure_idx = find_first(names, "Pressure")
-        pressure_data = extract_data(data.data, pressure_idx, min_vals, max_vals, data.channel_details)
+        pressure_pad = get_pad_value(data.channel_details, pressure_idx)
+        pressure_data = extract_data(data.data, pressure_idx, min_vals, max_vals, pressure_pad)
 
         self.add_temperature_data(
             temperature_data,
@@ -467,7 +484,8 @@ class Inlet(object):
             time,
             longitude,
             latitude,
-            data.filename)
+            data.filename,
+            placeholder=temperature_pad)
 
         self.add_salinity_data(
             salinity_data,
@@ -476,7 +494,8 @@ class Inlet(object):
             time,
             longitude,
             latitude,
-            data.filename)
+            data.filename,
+            placeholder=salinity_pad)
 
         self.add_oxygen_data(
             oxygen_data,
@@ -488,4 +507,5 @@ class Inlet(object):
             pressure_data,
             longitude,
             latitude,
-            data.filename)
+            data.filename,
+            placeholder=oxygen_pad)
