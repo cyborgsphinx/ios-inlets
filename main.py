@@ -75,7 +75,7 @@ def chart_anomalies(inlet_list: list[inlets.Inlet], data_fn):
             total, num = totals[year]
             totals[year] = (total + datum.datum, num + 1)
 
-        avg = sum(map(lambda x: x.datum, data)) / len(data)
+        avg = sum(x.datum for x in data) / len(data)
         avgs = {y: t/n for y, (t, n) in totals.items()}
 
         avg_diffs = {y: a - avg for y, a in avgs.items()}

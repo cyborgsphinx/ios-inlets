@@ -6,3 +6,4 @@ notebooks/
 *.png
 *.pickle
 *.zip
+*.log
