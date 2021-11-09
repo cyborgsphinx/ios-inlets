@@ -24,4 +24,11 @@ Inlet polygons defined using https://geojson.io
   - [X] Extend script for salinity/oxidization
   - [X] Extend script for other inlets
 - [X] Extend graph with new data
-- [ ] Automate graph creation
+
+## Notes
+
+In order to produce a valuable graph, some of the shell files needed to be tweaked in order to be self-consistent.
+This is a list of the changes made.
+
+- Changes made directly to data/www.waterproperties.ca/osd_data_archive/UBC/8703/87030005.UBC
+-- Modified pad value of salinity to be -9.99 instead of -9.999 since the actual value of the pad was -9.990

@@ -46,7 +46,10 @@ def test_find_any(source, attrs, expected):
         pytest.param(os.path.join("BOT", "2004-004-0046.che.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_temperature_data(source):
-    data = xarray.open_dataset(data_path(source))
+    file = data_path(source)
+    if not os.path.isfile(file):
+        pytest.skip(f"{file} is not accessible")
+    data = xarray.open_dataset(file)
     assert inlets.find_temperature_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -58,7 +61,10 @@ def test_find_temperature_data(source):
         pytest.param(os.path.join("BOT", "1978-033-0013.bot.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_salinity_data(source):
-    data = xarray.open_dataset(data_path(source))
+    file = data_path(source)
+    if not os.path.isfile(file):
+        pytest.skip(f"{file} is not accessible")
+    data = xarray.open_dataset(file)
     assert inlets.find_salinity_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -70,7 +76,10 @@ def test_find_salinity_data(source):
         pytest.param(os.path.join("BOT", "1976-021-0005.bot.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_oxygen_data(source):
-    data = xarray.open_dataset(data_path(source))
+    file = data_path(source)
+    if not os.path.isfile(file):
+        pytest.skip(f"{file} is not accessible")
+    data = xarray.open_dataset(file)
     assert inlets.find_oxygen_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -90,7 +99,10 @@ def test_find_oxygen_data(source):
         pytest.param(os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail),
     ])
 def test_find_depth_data(source):
-    data = xarray.open_dataset(data_path(source))
+    file = data_path(source)
+    if not os.path.isfile(file):
+        pytest.skip(f"{file} is not accessible")
+    data = xarray.open_dataset(file)
     assert inlets.find_depth_data(data) is not None
 
 @pytest.mark.parametrize(
@@ -121,8 +133,11 @@ def test_inlet_contains(polygon, point):
         pytest.param(os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail),
     ])
 def test_inlet_add_temperature(source):
+    file = data_path(source)
+    if not os.path.isfile(file):
+        pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
-    data = xarray.open_dataset(data_path(source))
+    data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
     assert inlet.has_temperature_data()
 
@@ -143,8 +158,11 @@ def test_inlet_add_temperature(source):
         pytest.param(os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail),
     ])
 def test_inlet_add_salinity(source):
+    file = data_path(source)
+    if not os.path.isfile(file):
+        pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
-    data = xarray.open_dataset(data_path(source))
+    data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
     assert inlet.has_salinity_data()
 
@@ -166,8 +184,11 @@ def test_inlet_add_salinity(source):
         pytest.param(os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail),
     ])
 def test_inlet_add_oxygen(source):
+    file = data_path(source)
+    if not os.path.isfile(file):
+        pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet("Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300])
-    data = xarray.open_dataset(data_path(source))
+    data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
     assert inlet.has_oxygen_data()
 
