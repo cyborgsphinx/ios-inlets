@@ -1,6 +1,6 @@
 import argparse
 import inlets
-import ios_data_transform as idt
+import cioos_data_transform.IosObsFile as ios
 import json
 import fnmatch
 import logging
@@ -169,7 +169,7 @@ def main():
                 for item in fnmatch.filter(files, f"*.{ext}"):
                     file_name = os.path.join(root, item)
                     try:
-                        shell = idt.ObsFile.ObsFile(file_name, False)
+                        shell = ios.ObsFile(file_name, False)
                         import_data(shell)
                     except Exception as e:
                         logging.exception(f"Exception occurred reading data from {file_name}, making it unsuitable to pull data from: {e}")
