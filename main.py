@@ -113,6 +113,10 @@ def import_data(data_obj):
     data_obj.location = data_obj.get_location()
     data_obj.channels = data_obj.get_channels()
     data_obj.channel_details = data_obj.get_channel_detail()
+    if "INSTRUMENT" in data_obj.get_list_of_sections():
+        data_obj.instrument = data_obj.get_section("INSTRUMENT")
+    else:
+        logging.info(f"{data_obj.filename} does not have an instrument field, depth must be included in data")
     if data_obj.channel_details is None:
         print("Unable to get channel details from header...")
     # try reading file using format specified in 'FORMAT'
@@ -123,9 +127,7 @@ def import_data(data_obj):
         data_obj.data = None
 
     if data_obj.data is None:
-            data_obj.data = data_obj.get_data(formatline=None)
-    # allow for collisions with netcdf filename values
-    data_obj.filename = os.path.basename(data_obj.filename)
+        data_obj.data = data_obj.get_data(formatline=None)
 
 def main():
     parser = argparse.ArgumentParser()

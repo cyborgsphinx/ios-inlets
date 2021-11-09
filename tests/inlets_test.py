@@ -235,3 +235,14 @@ def test_convert_oxygen_data_missing_data(
 )
 def test_reinsert_nan(data, placeholder):
     assert any(numpy.isnan(inlets.reinsert_nan(data, placeholder)))
+
+@pytest.mark.parametrize(
+    "source,prefix,index",
+    [
+        (["depth", "temperature"], "depth", 0),
+        (["depth", "temperature"], "temperature", 1),
+        (["depth", "temperature"], "oxygen", -1),
+        (["depth:suffix", "temperature"], "depth", 0),
+    ])
+def test_find_first(source, prefix, index):
+    assert inlets.find_first(source, prefix) == index

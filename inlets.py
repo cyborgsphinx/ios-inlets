@@ -3,6 +3,7 @@ import gsw
 import itertools
 import logging
 import numpy
+import os
 import pandas
 import re
 from shapely.geometry import Point, Polygon
@@ -42,10 +43,11 @@ def get_array(array):
     else:
         return array
 
-def find_first(source: list[str], prefix: str):
+def find_first(source: list[str], *args):
     for i, s in enumerate(source):
-        if s.startswith(prefix):
-            return i
+        for prefix in args:
+            if s.startswith(prefix):
+                return i
     else:
         return -1
 
@@ -53,9 +55,9 @@ def to_float(source):
     if isinstance(source, float):
         return source
     elif isinstance(source, bytes):
-        return numpy.nan if source.strip() == b"' '" else float(source.strip().decode("utf-8"))
+        return numpy.nan if source.strip() in [b"' '", b"n/a"] else float(source.strip().decode("utf-8"))
     else:
-        return numpy.nan if source.strip() == "' '" else float(source.strip())
+        return numpy.nan if source.strip() in ["' '", "n/a"] else float(source.strip())
 
 def find_any(source, attrs: list[str]):
     for attr in attrs:
@@ -161,7 +163,7 @@ class InletData(object):
         self.datum = datum
         self.longitude = longitude
         self.latitude = latitude
-        self.filename = filename.lower()
+        self.filename = os.path.basename(filename).lower()
         self.computed = computed
         self.assumed_density = assumed_density
 
@@ -453,28 +455,40 @@ class Inlet(object):
     def add_data_from_shell(self, data):
         names, units, min_vals, max_vals = data.channels["Name"], data.channels["Units"], data.channels["Minimum"], data.channels["Maximum"]
 
-        time, longitude, latitude = numpy.full(len(data.data), data.start_dateobj), data.location["LONGITUDE"], data.location["LATITUDE"]
+        longitude, latitude = data.location["LONGITUDE"], data.location["LATITUDE"]
 
-        depth_idx = find_first(names, "Depth")
+        time_idx = find_first(names, "Date", "DATE")
+        if time_idx < 0:
+            # time not included in data, just use start date
+            time = numpy.full(len(data.data), data.start_dateobj)
+        else:
+            # time included in data
+            time = extract_data(data.data, time_idx, min_vals, max_vals, data.start_dateobj)
+
+        depth_idx = find_first(names, "Depth", "DEPTH")
         if depth_idx < 0:
-            logging.info(f"Shell data from {data.filename} lacks depth information. Skipping.")
-            return
-        depth_pad = get_pad_value(data.channel_details, depth_idx)
-        depth_data = extract_data(data.data, depth_idx, min_vals, max_vals, depth_pad)
+            if data.instrument is not None and "DEPTH" in data.instrument:
+                depth_data = numpy.full(len(data.data), data.instrument["DEPTH"])
+            else:
+                logging.warning(f"Shell data from {data.filename} lacks depth information. Skipping.")
+                return
+        else:
+            depth_pad = get_pad_value(data.channel_details, depth_idx)
+            depth_data = extract_data(data.data, depth_idx, min_vals, max_vals, depth_pad)
 
-        temperature_idx = find_first(names, "Temperature")
+        temperature_idx = find_first(names, "Temperature", "TEMPERATURE")
         temperature_pad = get_pad_value(data.channel_details, temperature_idx)
         temperature_data = extract_data(data.data, temperature_idx, min_vals, max_vals, temperature_pad)
 
-        salinity_idx = find_first(names, "Salinity")
+        salinity_idx = find_first(names, "Salinity", "SALINITY")
         salinity_pad = get_pad_value(data.channel_details, salinity_idx)
         salinity_data = extract_data(data.data, salinity_idx, min_vals, max_vals, salinity_pad)
 
-        oxygen_idx = find_first(names, "Oxygen")
+        oxygen_idx = find_first(names, "Oxygen", "OXYGEN")
         oxygen_pad = get_pad_value(data.channel_details, oxygen_idx)
         oxygen_data = extract_data(data.data, oxygen_idx, min_vals, max_vals, oxygen_pad)
 
-        pressure_idx = find_first(names, "Pressure")
+        pressure_idx = find_first(names, "Pressure", "PRESSURE")
         pressure_pad = get_pad_value(data.channel_details, pressure_idx)
         pressure_data = extract_data(data.data, pressure_idx, min_vals, max_vals, pressure_pad)
 
