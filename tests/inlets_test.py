@@ -32,7 +32,7 @@ class Data(object):
         (Data(9), ["foo", "bar"], None),
     ])
 def test_find_any(source, attrs, expected):
-    assert inlets.find_any(source, attrs) == expected
+    assert inlets.find_any(source, *attrs) == expected
 
 @pytest.mark.parametrize(
     "source",

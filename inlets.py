@@ -7,7 +7,6 @@ import os
 import pandas
 import re
 from shapely.geometry import Point, Polygon
-import warnings
 import xarray
 
 SHALLOW = "shallow"
@@ -59,7 +58,7 @@ def to_float(source):
     else:
         return numpy.nan if source.strip() in ["' '", "n/a"] else float(source.strip())
 
-def find_any(source, attrs: list[str]):
+def find_any(source, *attrs):
     for attr in attrs:
         if hasattr(source, attr):
             return getattr(source, attr)
@@ -67,19 +66,19 @@ def find_any(source, attrs: list[str]):
         return None
 
 def find_temperature_data(data):
-    return find_any(data, ["TEMPRTN1", "TEMPST01", "TEMPPR01", "TEMPPR03", "TEMPS901", "TEMPS601"])
+    return find_any(data, "TEMPRTN1", "TEMPST01", "TEMPPR01", "TEMPPR03", "TEMPS901", "TEMPS601")
 
 def find_salinity_data(data):
-    return find_any(data, ["PSLTZZ01", "ODSDM021", "SSALST01", "PSALST01", "PSALBST1", "sea_water_practical_salinity"])
+    return find_any(data, "PSLTZZ01", "ODSDM021", "SSALST01", "PSALST01", "PSALBST1", "sea_water_practical_salinity")
 
 def find_oxygen_data(data):
-    return find_any(data, ["DOXYZZ01", "DOXMZZ01"])
+    return find_any(data, "DOXYZZ01", "DOXMZZ01")
 
 def find_depth_data(data):
-    return find_any(data, ["depth", "instrument_depth", "PPSAADCP"])
+    return find_any(data, "depth", "instrument_depth", "PPSAADCP")
 
 def find_pressure_data(data):
-    return find_any(data, ["PRESPR01", "sea_water_pressure"])
+    return find_any(data, "PRESPR01", "sea_water_pressure")
 
 def extend_arr(arr, length):
     return numpy.full(length, arr.item()) if arr.size == 1 else arr
@@ -111,6 +110,28 @@ def warn_unknown_variable(data, var):
 def warn_wrong_units(expected, actual, filename):
     logging.warning(f"Cowardly refusing to perform the conversion from {actual} to {expected} in {filename}")
 
+def calculate_density(
+        length,
+        temperature_C,
+        salinity_SP,
+        pressure_dbar,
+        longitude,
+        latitude,
+        filename):
+    assumed = False
+    if all(x is not None for x in [temperature_C, salinity_SP, pressure_dbar]):
+        salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
+        density = gsw.rho(
+            salinity_SA,
+            gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
+            pressure_dbar)
+    else:
+        # missing data necessary to create accurate density, assuming constant density using sigma-theta method
+        logging.info(f"Not enough data in {filename} to accurately compute density. Proceeding with density as though all values are 0")
+        assumed = True
+        density = numpy.full(length, gsw.rho([0], [0], 0)[0])
+    return density, assumed
+
 def convert_umol_kg_to_mL_L(
         oxygen_umol_kg,
         longitude,
@@ -121,25 +142,91 @@ def convert_umol_kg_to_mL_L(
         filename="unknown file"):
     oxygen_umol_per_ml = 44.661
     metre_cube_per_litre = 0.001
-    if temperature_C is not None and salinity_SP is not None and pressure_dbar is not None:
-        assumed_density = False
-        with warnings.catch_warnings(record=True) as warn:
-            salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
-            density = gsw.rho(
-                salinity_SA,
-                gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
-                pressure_dbar
-            )
-            if len(warn) > 0:
-                logging.warning(f"Issues arose in {filename} with {oxygen_umol_kg}, {temperature_C}, {salinity_SP}, {pressure_dbar}, assuming density to avoid invalid computations")
-                assumed_density = True
-                density = numpy.full(len(oxygen_umol_kg), gsw.rho([0], [0], 0)[0])
+    density, assumed_density = calculate_density(
+        len(oxygen_umol_kg),
+        temperature_C,
+        salinity_SP,
+        pressure_dbar,
+        longitude,
+        latitude,
+        filename)
+    return numpy.fromiter(
+        (o * d / oxygen_umol_per_ml * metre_cube_per_litre for o, d in zip(oxygen_umol_kg, density)),
+        float,
+        count=len(oxygen_umol_kg)
+    ), assumed_density
+
+def convert_salinity(
+        salinity,
+        units,
+        filename):
+    """ Converts salinity into PSU
+
+    Arguments
+    salinity - raw salinity data
+    units - unit of measure for the salinity data
+    filename - the name of the file the data came from (only used for logs if something goes wrong)
+
+    Returns (oxygen in PSU, computed)
+    """
+    if salinity is None:
+        return None, False
+    elif units.lower() in ["psu", "pss-78"]:
+        return salinity, False
+    elif units.lower() in ["ppt"]:
+        return gsw.SP_from_SK(salinity), True
+    elif units.lower() in ["umol/kg"]:
+        g_per_umol = 58.44 / 1000 / 1000
+        return gsw.SP_from_SR(salinity * g_per_umol), True
     else:
-        # missing data necessary to create accurate density, assuming constant density using sigma-theta method
-        logging.info(f"Not enough data in {filename} to accurately compute density. Proceeding with density as though all values are 0")
-        assumed_density = True
-        density = numpy.full(len(oxygen_umol_kg), gsw.rho([0], [0], 0)[0])
-    return numpy.fromiter(map(lambda o, d: o * d / oxygen_umol_per_ml * metre_cube_per_litre, oxygen_umol_kg, density), float, count=len(oxygen_umol_kg)), assumed_density
+        warn_wrong_units("PSU", units, filename)
+        return None, False
+
+def convert_oxygen(
+        oxygen,
+        units,
+        longitude,
+        latitude,
+        temperature_C,
+        salinity_SP,
+        pressure_dbar,
+        filename):
+    """ Converts oxygen concentration into mL/L
+
+    Arguments
+    oxygen - raw oxygen data
+    units - unit of measure for the oxygen data
+    longitude - the longitude where the oxygen data was measured
+    latitude - the latitude where the oxygen data was measured
+    temperature_C - the temperature (in Celcius) associated with the oxygen data
+    salinity_SP - the salinity (in PSU) associated with the oxygen data
+    pressure_dbar - the pressure (in dbar) associated with the oxygen data
+    filename - the name of the file the data came from (only used for logs if something goes wrong)
+
+    Returns (oxygen in mL/L, computed, assumed density)
+    """
+    if oxygen is None:
+        return None, False, False
+    elif units.lower() in ["ml/l"]:
+        return oxygen, False, False
+    #                                  V this is V this when parsed with ObsFile.py
+    elif units.lower() in ["umol/kg", "mmol/m", "mmol/**3"]:
+        data, assumed_density = convert_umol_kg_to_mL_L(
+            oxygen,
+            longitude,
+            latitude,
+            temperature_C,
+            salinity_SP,
+            pressure_dbar,
+            filename=filename)
+        return data, True, assumed_density
+    elif units.lower() in ["mg/l"]:
+        oxygen_mg_per_mL = 1.429
+        data = oxygen * oxygen_mg_per_mL
+        return data, True, False
+    else:
+        warn_wrong_units("mL/L", units, filename)
+        return None, False, False
 
 def get_data(col, bucket, before=None):
     data = [[datum.time, datum.datum] for datum in col if datum.bucket == bucket]
@@ -305,107 +392,14 @@ class Inlet(object):
                     assumed_density=assumed_density))
         return out
 
-    def add_temperature_data(
-            self,
-            data,
-            depth,
-            time,
-            longitude,
-            latitude,
-            filename,
-            placeholder=-99.0):
-        if data is None or depth is None:
-            return
-
-        self.temperature_data.extend(self.produce_data(
-            time,
-            depth,
-            data,
-            longitude,
-            latitude,
-            filename,
-            placeholder=placeholder))
-
-    def add_salinity_data(
-            self,
-            data,
-            units,
-            depth,
-            time,
-            longitude,
-            latitude,
-            filename,
-            placeholder=-99.0):
-        if data is None or depth is None:
-            return
-
-        computed = False
-        if units.lower() in ["ppt"]:
-            data = gsw.SP_from_SK(data)
-            computed = True
-        elif units.lower() not in ["psu", "pss-78"]:
-            warn_wrong_units("PSU", units, filename)
-            return
-
-        self.salinity_data.extend(self.produce_data(
-            time,
-            depth,
-            data,
-            longitude,
-            latitude,
-            filename,
-            placeholder=placeholder,
-            computed=computed))
-
-    def add_oxygen_data(
-            self,
-            data,
-            units,
-            depth,
-            time,
-            temperature,
-            salinity,
-            pressure,
-            longitude,
-            latitude,
-            filename,
-            placeholder=-99.0):
-        if data is None or depth is None:
-            return
-
-        computed = False
-        assumed_density = False
-        if units.lower() == "umol/kg":
-            data, assumed_density = convert_umol_kg_to_mL_L(
-                data,
-                longitude,
-                latitude,
-                temperature,
-                salinity,
-                pressure,
-                filename=filename)
-            computed = True
-        elif units.lower() != "ml/l":
-            warn_wrong_units("mL/L", units, filename)
-            return
-
-        self.oxygen_data.extend(self.produce_data(
-            time,
-            depth,
-            data,
-            longitude,
-            latitude,
-            filename,
-            placeholder=placeholder,
-            computed=computed,
-            assumed_density=assumed_density))
-
     def add_data_from_netcdf(self, data):
         time, longitude, latitude, filename = get_array(data.time), get_scalar(data.longitude), get_scalar(data.latitude), get_scalar(data.filename)
 
         depth = find_depth_data(data)
         if depth is None:
             warn_unknown_variable(data, "depth")
+            # With no depth information, we can't tell if the data is relevant. Conservatively assume it is not
+            return
 
         temperature = find_temperature_data(data)
         if temperature is None:
@@ -423,34 +417,55 @@ class Inlet(object):
         if pressure is None:
             warn_unknown_variable(data, "pressure")
 
-        self.add_temperature_data(
-            get_array(temperature),
-            get_array(depth),
-            time,
-            longitude,
-            latitude,
-            filename)
-
-        self.add_salinity_data(
-            get_array(salinity),
+        salinity, salinity_computed = convert_salinity(
+            salinity,
             None if salinity is None else salinity.units,
-            get_array(depth),
-            time,
-            longitude,
-            latitude,
             filename)
 
-        self.add_oxygen_data(
-            get_array(oxygen),
+        oxygen, oxygen_computed, oxygen_assumed_density = convert_oxygen(
+            oxygen,
             None if oxygen is None else oxygen.units,
-            get_array(depth),
-            time,
-            get_array(temperature),
-            get_array(salinity),
-            get_array(pressure),
             longitude,
             latitude,
+            temperature,
+            salinity,
+            pressure,
             filename)
+
+        placeholder = -99
+
+        if temperature is not None:
+            self.temperature_data.extend(self.produce_data(
+                get_array(time),
+                get_array(depth),
+                get_array(temperature),
+                longitude,
+                latitude,
+                filename,
+                placeholder=placeholder))
+
+        if salinity is not None:
+            self.salinity_data.extend(self.produce_data(
+                get_array(time),
+                get_array(depth),
+                get_array(salinity),
+                longitude,
+                latitude,
+                filename,
+                placeholder=placeholder,
+                computed=salinity_computed))
+
+        if oxygen is not None:
+            self.oxygen_data.extend(self.produce_data(
+                get_array(time),
+                get_array(depth),
+                get_array(oxygen),
+                longitude,
+                latitude,
+                filename,
+                placeholder=placeholder,
+                computed=oxygen_computed,
+                assumed_density=oxygen_assumed_density))
 
     def add_data_from_shell(self, data):
         names, units, min_vals, max_vals = data.channels["Name"], data.channels["Units"], data.channels["Minimum"], data.channels["Maximum"]
@@ -492,34 +507,50 @@ class Inlet(object):
         pressure_pad = get_pad_value(data.channel_details, pressure_idx)
         pressure_data = extract_data(data.data, pressure_idx, min_vals, max_vals, pressure_pad)
 
-        self.add_temperature_data(
-            temperature_data,
-            depth_data,
-            time,
-            longitude,
-            latitude,
-            data.filename,
-            placeholder=temperature_pad)
-
-        self.add_salinity_data(
+        salinity_data, salinity_computed = convert_salinity(
             salinity_data,
             units[salinity_idx].strip(),
-            depth_data,
-            time,
-            longitude,
-            latitude,
-            data.filename,
-            placeholder=salinity_pad)
+            data.filename)
 
-        self.add_oxygen_data(
+        oxygen_data, oxygen_computed, oxygen_assumed_density = convert_oxygen(
             oxygen_data,
             units[oxygen_idx].strip(),
-            depth_data,
-            time,
+            longitude,
+            latitude,
             temperature_data,
             salinity_data,
             pressure_data,
-            longitude,
-            latitude,
-            data.filename,
-            placeholder=oxygen_pad)
+            data.filename)
+
+        if temperature_data is not None:
+            self.temperature_data.extend(self.produce_data(
+                time,
+                depth_data,
+                temperature_data,
+                longitude,
+                latitude,
+                data.filename,
+                placeholder=temperature_pad))
+
+        if salinity_data is not None:
+            self.salinity_data.extend(self.produce_data(
+                time,
+                depth_data,
+                salinity_data,
+                longitude,
+                latitude,
+                data.filename,
+                placeholder=salinity_pad,
+                computed=salinity_computed))
+
+        if oxygen_data is not None:
+            self.oxygen_data.extend(self.produce_data(
+                time,
+                depth_data,
+                oxygen_data,
+                longitude,
+                latitude,
+                data.filename,
+                placeholder=oxygen_pad,
+                computed=oxygen_computed,
+            assumed_density=oxygen_assumed_density))
