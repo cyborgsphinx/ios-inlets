@@ -7,3 +7,4 @@ notebooks/
 *.pickle
 *.zip
 *.log
+*.txt
