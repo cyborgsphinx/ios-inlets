@@ -54,9 +54,9 @@ def to_float(source):
     if isinstance(source, float):
         return source
     elif isinstance(source, bytes):
-        return numpy.nan if source.strip() in [b"' '", b"n/a"] else float(source.strip().decode("utf-8"))
+        return numpy.nan if source.strip() in [b"' '", b"n/a", b""] else float(source.strip().decode("utf-8"))
     else:
-        return numpy.nan if source.strip() in ["' '", "n/a"] else float(source.strip())
+        return numpy.nan if source.strip() in ["' '", "n/a", ""] else float(source.strip())
 
 def find_any(source, *attrs):
     for attr in attrs:
@@ -92,9 +92,23 @@ def get_pad_value(info, index):
         return None
     return to_float(info["Pad"][index])
 
-def extract_data(source, index, min_vals, max_vals, replace):
+def has_quality(value_index, names):
+    quality_index = value_index + 1
+    return quality_index < len(names) and (names[quality_index].startswith("Quality") or names[quality_index].startswith("Flag"))
+
+def get_int(value):
+    num = to_float(value)
+    if numpy.isnan(num):
+        return None
+    else:
+        return int(num)
+
+def extract_data(source, index, min_vals, max_vals, replace, has_quality=False):
     if index >= 0 and is_valid_field(min_vals[index], max_vals[index]):
-        return reinsert_nan((to_float(d[index]) for d in source), replace, length=len(source))
+        return reinsert_nan(
+            (numpy.nan if has_quality and get_int(d[index+1]) in [3, 4] else to_float(d[index]) for d in source),
+            replace,
+            length=len(source))
     else:
         return None
 
@@ -172,7 +186,7 @@ def convert_salinity(
         return None, False
     elif units.lower() in ["psu", "pss-78"]:
         return salinity, False
-    elif units.lower() in ["ppt"]:
+    elif units.lower() in ["ppt"] or units.lower().startswith("'ppt"):
         return gsw.SP_from_SK(salinity), True
     elif units.lower() in ["umol/kg"]:
         g_per_umol = 58.44 / 1000 / 1000
@@ -481,23 +495,53 @@ class Inlet(object):
 
         depth_idx = find_first(names, "Depth", "DEPTH")
         depth_pad = get_pad_value(data.channel_details, depth_idx)
-        depth_data = extract_data(data.data, depth_idx, min_vals, max_vals, depth_pad)
+        depth_data = extract_data(
+            data.data,
+            depth_idx,
+            min_vals,
+            max_vals,
+            depth_pad,
+            has_quality(depth_idx, names))
 
         temperature_idx = find_first(names, "Temperature", "TEMPERATURE")
         temperature_pad = get_pad_value(data.channel_details, temperature_idx)
-        temperature_data = extract_data(data.data, temperature_idx, min_vals, max_vals, temperature_pad)
+        temperature_data = extract_data(
+            data.data,
+            temperature_idx,
+            min_vals,
+            max_vals,
+            temperature_pad,
+            has_quality(temperature_idx, names))
 
         salinity_idx = find_first(names, "Salinity", "SALINITY", "'Salinity", "'SALINITY")
         salinity_pad = get_pad_value(data.channel_details, salinity_idx)
-        salinity_data = extract_data(data.data, salinity_idx, min_vals, max_vals, salinity_pad)
+        salinity_data = extract_data(
+            data.data,
+            salinity_idx,
+            min_vals,
+            max_vals,
+            salinity_pad,
+            has_quality(salinity_idx, names))
 
         oxygen_idx = find_first(names, "Oxygen", "OXYGEN")
         oxygen_pad = get_pad_value(data.channel_details, oxygen_idx)
-        oxygen_data = extract_data(data.data, oxygen_idx, min_vals, max_vals, oxygen_pad)
+        oxygen_data = extract_data(
+            data.data,
+            oxygen_idx,
+            min_vals,
+            max_vals,
+            oxygen_pad,
+            has_quality(oxygen_idx, names))
 
         pressure_idx = find_first(names, "Pressure", "PRESSURE")
         pressure_pad = get_pad_value(data.channel_details, pressure_idx)
-        pressure_data = extract_data(data.data, pressure_idx, min_vals, max_vals, pressure_pad)
+        pressure_data = extract_data(
+            data.data,
+            pressure_idx,
+            min_vals,
+            max_vals,
+            pressure_pad,
+            has_quality(pressure_idx, names))
 
         if depth_data is None:
             if pressure_data is not None:
