@@ -163,7 +163,7 @@ def main():
         shell_exts = ["bot", "che", "cdt", "ubc", "med"]
         # make a list of all elements in shell_exts followed by their str.upper() versions
         exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
-        for root, _, files in os.walk("data"):
+        for root, dirs, files in os.walk("data"):
             for ext in exts:
                 for item in fnmatch.filter(files, f"*.{ext}"):
                     file_name = os.path.join(root, item)
@@ -183,6 +183,8 @@ def main():
                                 except:
                                     logging.exception(f"Exception occurred in {file_name}")
                                     raise
+            if "HISTORY" in dirs:
+                dirs.remove("HISTORY")
         with open(PICKLE_NAME, mode="wb") as f:
             pickle.dump(inlet_list, f)
     for inlet in inlet_list:
