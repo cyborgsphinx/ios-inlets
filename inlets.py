@@ -126,8 +126,7 @@ def calculate_density(
             gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
             pressure_dbar)
     else:
-        # missing data necessary to create accurate density, assuming constant density using sigma-theta method
-        logging.info(f"Not enough data in {filename} to accurately compute density. Proceeding with density as though all values are 0")
+        logging.warning(f"Not enough data in {filename} to accurately compute density. Calculating density as though all values are 0")
         assumed = True
         density = numpy.full(length, gsw.rho([0], [0], 0)[0])
     return density, assumed
@@ -167,7 +166,7 @@ def convert_salinity(
     units - unit of measure for the salinity data
     filename - the name of the file the data came from (only used for logs if something goes wrong)
 
-    Returns (oxygen in PSU, computed)
+    Returns (oxygen in PSU, whether a computation was needed)
     """
     if salinity is None:
         return None, False
@@ -203,7 +202,7 @@ def convert_oxygen(
     pressure_dbar - the pressure (in dbar) associated with the oxygen data
     filename - the name of the file the data came from (only used for logs if something goes wrong)
 
-    Returns (oxygen in mL/L, computed, assumed density)
+    Returns (oxygen in mL/L, whether a computation was needed, whether density was assumed)
     """
     if oxygen is None:
         return None, False, False
@@ -306,27 +305,22 @@ class Inlet(object):
 
     def contains(self, data):
         longitude, latitude = None, None
-        if isinstance(data, dict):
-            if "longitude" in data:
-                longitude = data["longitude"]
-            elif "LONGITUDE" in data:
-                longitude = data["LONGITUDE"]
-            else:
-                logging.warning("data does not contain longitude information")
-                return False
-            if "latitude" in data:
-                latitude = data["latitude"]
-            elif "LATITUDE" in data:
-                latitude = data["LATITUDE"]
-            else:
-                logging.warning("data does not contain latitude information")
-                return False
-        else:
-            if not hasattr(data, "longitude") or not hasattr(data, "latitude"):
-                logging.warning("data does not contain full coordinate information")
-                return False
+        if "longitude" in data:
             longitude = data["longitude"]
+        elif "LONGITUDE" in data:
+            longitude = data["LONGITUDE"]
+        else:
+            logging.warning("data does not contain longitude information")
+            return False
+
+        if "latitude" in data:
             latitude = data["latitude"]
+        elif "LATITUDE" in data:
+            latitude = data["LATITUDE"]
+        else:
+            logging.warning("data does not contain latitude information")
+            return False
+
         return self.polygon.contains(Point(longitude, latitude))
 
     def is_shallow(self, depth):
@@ -398,8 +392,6 @@ class Inlet(object):
         depth = find_depth_data(data)
         if depth is None:
             warn_unknown_variable(data, "depth")
-            # With no depth information, we can't tell if the data is relevant. Conservatively assume it is not
-            return
 
         temperature = find_temperature_data(data)
         if temperature is None:
@@ -417,6 +409,13 @@ class Inlet(object):
         if pressure is None:
             warn_unknown_variable(data, "pressure")
 
+        if depth is None:
+            if pressure is not None:
+                depth = gsw.z_from_p(get_array(pressure), latitude) * -1
+            else:
+                logging.warning(f"{get_scalar(data.filename)} does not have depth or pressure data. Skipping")
+                return
+
         salinity, salinity_computed = convert_salinity(
             salinity,
             None if salinity is None else salinity.units,
@@ -429,7 +428,7 @@ class Inlet(object):
             latitude,
             temperature,
             salinity,
-            pressure,
+            pressure if pressure is not None else gsw.p_from_z(get_array(depth) * -1, latitude),
             filename)
 
         placeholder = -99
@@ -481,21 +480,14 @@ class Inlet(object):
             time = extract_data(data.data, time_idx, min_vals, max_vals, data.start_dateobj)
 
         depth_idx = find_first(names, "Depth", "DEPTH")
-        if depth_idx < 0:
-            if data.instrument is not None and "DEPTH" in data.instrument:
-                depth_data = numpy.full(len(data.data), data.instrument["DEPTH"])
-            else:
-                logging.warning(f"Shell data from {data.filename} lacks depth information. Skipping.")
-                return
-        else:
-            depth_pad = get_pad_value(data.channel_details, depth_idx)
-            depth_data = extract_data(data.data, depth_idx, min_vals, max_vals, depth_pad)
+        depth_pad = get_pad_value(data.channel_details, depth_idx)
+        depth_data = extract_data(data.data, depth_idx, min_vals, max_vals, depth_pad)
 
         temperature_idx = find_first(names, "Temperature", "TEMPERATURE")
         temperature_pad = get_pad_value(data.channel_details, temperature_idx)
         temperature_data = extract_data(data.data, temperature_idx, min_vals, max_vals, temperature_pad)
 
-        salinity_idx = find_first(names, "Salinity", "SALINITY")
+        salinity_idx = find_first(names, "Salinity", "SALINITY", "'Salinity", "'SALINITY")
         salinity_pad = get_pad_value(data.channel_details, salinity_idx)
         salinity_data = extract_data(data.data, salinity_idx, min_vals, max_vals, salinity_pad)
 
@@ -506,6 +498,13 @@ class Inlet(object):
         pressure_idx = find_first(names, "Pressure", "PRESSURE")
         pressure_pad = get_pad_value(data.channel_details, pressure_idx)
         pressure_data = extract_data(data.data, pressure_idx, min_vals, max_vals, pressure_pad)
+
+        if depth_data is None:
+            if pressure_data is not None:
+                depth_data = gsw.z_from_p(pressure_data, latitude) * -1
+            else:
+                logging.warning(f"{data.filename} does not have depth or pressure data. Skipping")
+                return
 
         salinity_data, salinity_computed = convert_salinity(
             salinity_data,
@@ -519,7 +518,7 @@ class Inlet(object):
             latitude,
             temperature_data,
             salinity_data,
-            pressure_data,
+            pressure_data if pressure_data is not None else gsw.p_from_z(depth_data * -1, latitude),
             data.filename)
 
         if temperature_data is not None:

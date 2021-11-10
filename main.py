@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import pickle
 import os
 from shapely.geometry import Polygon
-from tqdm import tqdm
 import xarray
 
 PICKLE_NAME = "inlets.pickle"
@@ -150,7 +149,7 @@ def main():
 
         if not args.skip_netcdf:
             for root, _, files in os.walk(os.path.join("data", "netCDF_Data")):
-                for item in tqdm(fnmatch.filter(files, "*.nc"), desc=root):
+                for item in fnmatch.filter(files, "*.nc"):
                     file_name = os.path.join(root, item)
                     data = xarray.open_dataset(file_name)
                     for inlet in inlet_list:
@@ -178,7 +177,7 @@ def main():
                         if inlet.contains(shell.location):
                             # use item instead of file_name because the netcdf files don't store path information
                             # they also do not store the .nc extension, so this should be reasonable
-                            if not inlet.has_data_from(normalize(item)):
+                            if not inlet.has_data_from(item.lower()):
                                 try:
                                     inlet.add_data_from_shell(shell)
                                 except:
