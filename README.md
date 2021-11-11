@@ -12,6 +12,27 @@ The backing data can be found at [the waterproperties archive](https://www.water
 
 Inlet polygons defined using https://geojson.io
 
+## Dependencies
+
+This project depends on (at least)
+
+- [poetry](https://python-poetry.org)
+- python development headers (python-dev or equivalent)
+- pkg-config
+- libcairo development headers (libcairo-dev or equivalent)
+- gobject-introspection
+- libgirepository
+
+Once those are installed, you can run
+
+    $ poetry install --no-dev
+
+to get all the rest of the dependencies. To get dependencies which are useful for development, simply run
+
+    $ poetry install
+
+instead.
+
 ## Tasks
 
 - [X] Reproduce the original graphs
