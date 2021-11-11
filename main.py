@@ -109,7 +109,27 @@ def chart_salinity_anomalies(inlet_list: list[inlets.Inlet], show_figure: bool):
 
 def import_data(data_obj):
     data_obj.start_dateobj, data_obj.start_date = data_obj.get_date(opt='start')
-    data_obj.location = data_obj.get_location()
+    try:
+        data_obj.location = data_obj.get_location()
+    except:
+        logging.info(f"{data_obj.filename} is missing latitude or longitude information. Assigning based on geographic area")
+        data_obj.location = data_obj.get_section("LOCATION")
+        # python can only catch spelling mistakes in variables
+        geographic_area = "GEOGRAPHIC AREA"
+        latitude = "LATITUDE"
+        longitude = "LONGITUDE"
+        if geographic_area in data_obj.location:
+            if data_obj.location[geographic_area].strip() in ["Ind Arm", "Geo/Ind Arm"]:
+                data_obj.location[latitude] = 49.3
+                data_obj.location[longitude] = -122.9
+            if data_obj.location[geographic_area].strip() in ["Str. of Georgia", "Str.of Georgia", "Rupert Inlet"]:
+                # ignore data in this location
+                data_obj.location[latitude] = 0
+                data_obj.location[longitude] = 0
+            else:
+                logging.warning(f"{data_obj.filename} has unknown location {data_obj.location[geographic_area]}")
+        else:
+            logging.warning(f"{data_obj.filename} has unknown location")
     data_obj.channels = data_obj.get_channels()
     data_obj.channel_details = data_obj.get_channel_detail()
     if "INSTRUMENT" in data_obj.get_list_of_sections():

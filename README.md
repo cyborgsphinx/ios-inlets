@@ -24,6 +24,8 @@ Inlet polygons defined using https://geojson.io
   - [X] Extend script for salinity/oxidization
   - [X] Extend script for other inlets
 - [X] Extend graph with new data
+- [X] Allow use of location when lat/long are missing
+- [ ] Read time despite errors
 
 ## Notes
 
