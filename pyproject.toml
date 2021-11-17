@@ -13,6 +13,7 @@ scipy = "^1.7.1"
 Shapely = "^1.7.1"
 PyGObject = "^3.42.0"
 cioos-data-transform = {path = "cioos-siooc_data_transform/cioos_data_transform", develop = true}
+gsw = ">=3.3.1"
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
