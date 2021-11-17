@@ -1,6 +1,7 @@
 data/
 notebooks/
 .ipynb_checkpoints/
+.vscode/
 
 *.pyc
 *.png
