@@ -33,21 +33,6 @@ to get all the rest of the dependencies. To get dependencies which are useful fo
 
 instead.
 
-## Tasks
-
-- [X] Reproduce the original graphs
-  - [X] Reproduce one graph (Saanich Inlet temperatures)
-    - [X] Get all data associated with Saanich Inlet
-    - [X] Collect data into depth buckets
-    - [X] Plot data as date recorded (x) against temperature (y)
-    - [X] Figure out different sources
-      - [X] Find missing sources
-  - [X] Extend script for salinity/oxidization
-  - [X] Extend script for other inlets
-- [X] Extend graph with new data
-- [X] Allow use of location when lat/long are missing
-- [ ] Read time despite errors
-
 ## Notes
 
 In order to produce a valuable graph, some of the shell files needed to be tweaked in order to be self-consistent.
