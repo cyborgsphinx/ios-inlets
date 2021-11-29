@@ -25,6 +25,9 @@ ipykernel = "^6.4.2"
 [tool.poetry.scripts]
 plot = "plot:main"
 
+[tool.pyright]
+exclude = ["data", ".git", "**/__pycache__"]
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
