@@ -223,7 +223,7 @@ def convert_oxygen(
     elif units.lower() in ["ml/l"]:
         return oxygen, False, False
     #                                  V this is V this when parsed with ObsFile.py
-    elif units.lower() in ["umol/kg", "mmol/m", "mmol/**3"]:
+    elif units.lower() in ["umol/kg", "mmol/m", "mmol/m**3"]:
         data, assumed_density = convert_umol_kg_to_mL_L(
             oxygen,
             longitude,
