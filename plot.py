@@ -181,22 +181,18 @@ def main():
             for ext in exts:
                 for item in fnmatch.filter(files, f"*.{ext}"):
                     file_name = os.path.join(root, item)
-                    try:
-                        shell = ios.ObsFile(file_name, False)
-                        import_data(shell)
-                    except Exception as e:
-                        logging.exception(f"Exception occurred reading data from {file_name}, making it unsuitable to pull data from: {e}")
-                        continue
+                    shell = ios.ObsFile(file_name, False)
                     for inlet in inlet_list:
-                        if inlet.contains(shell.location):
+                        if inlet.contains(shell.get_location()):
                             # use item instead of file_name because the netcdf files don't store path information
                             # they also do not store the .nc extension, so this should be reasonable
                             if not inlet.has_data_from(item.lower()):
                                 try:
+                                    import_data(shell)
                                     inlet.add_data_from_shell(shell)
-                                except:
-                                    logging.exception(f"Exception occurred in {file_name}")
-                                    raise
+                                except Exception as e:
+                                    logging.exception(f"Exception occurred in {file_name}: {e}")
+                                    continue
             if "HISTORY" in dirs:
                 dirs.remove("HISTORY")
         with open(PICKLE_NAME, mode="wb") as f:
