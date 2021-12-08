@@ -137,16 +137,10 @@ def import_data(data_obj):
     else:
         logging.info(f"{data_obj.filename} does not have an instrument field, depth must be included in data")
     if data_obj.channel_details is None:
-        print("Unable to get channel details from header...")
-    # try reading file using format specified in 'FORMAT'
-    try:
-        data_obj.data = data_obj.get_data(formatline=data_obj.file['FORMAT'])
-    except Exception:
-        print("Could not read file using 'FORMAT' description...")
-        data_obj.data = None
+        logging.warning(f"Unable to get channel details from header for {data_obj.filename}...")
 
-    if data_obj.data is None:
-        data_obj.data = data_obj.get_data(formatline=None)
+    n_records = int(data_obj.file["NUMBER OF RECORDS"])
+    data_obj.data = data_obj.get_data(formatline=data_obj.get_format(), records=n_records)
 
 def main():
     parser = argparse.ArgumentParser()
