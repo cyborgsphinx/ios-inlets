@@ -15,9 +15,9 @@ DEEP = "deep"
 
 def is_in_bounds(val, lower, upper):
     if upper is not None:
-        return lower < val <= upper
+        return lower <= val <= upper
     else:
-        return lower < val
+        return lower <= val
 
 def get_datetime(d):
     return pandas.Timestamp(d).to_pydatetime()
@@ -596,4 +596,4 @@ class Inlet(object):
                 data.filename,
                 placeholder=oxygen_pad,
                 computed=oxygen_computed,
-            assumed_density=oxygen_assumed_density))
+                assumed_density=oxygen_assumed_density))
