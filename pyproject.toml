@@ -12,8 +12,8 @@ netCDF4 = "^1.5.7"
 scipy = "^1.7.1"
 Shapely = "^1.7.1"
 PyGObject = "^3.42.0"
-cioos-data-transform = {path = "cioos-siooc_data_transform/cioos_data_transform", develop = true}
 gsw = ">=3.3.1"
+ios-shell = {git = "ssh://git@github.com/cyborgsphinx/ios-shell.git", rev = "main"}
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
@@ -21,6 +21,7 @@ pyflakes = "^2.4.0"
 pytest = "^6.2.5"
 jupyter = "^1.0.0"
 ipykernel = "^6.4.2"
+mypy = "^0.910"
 
 [tool.poetry.scripts]
 plot = "plot:main"

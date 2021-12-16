@@ -51,7 +51,7 @@ def find_first(source: list[str], *args):
         return -1
 
 def to_float(source):
-    if isinstance(source, float):
+    if isinstance(source, float) or isinstance(source, int):
         return source
     elif isinstance(source, bytes):
         return numpy.nan if source.strip() in [b"' '", b"n/a", b""] else float(source.strip().decode("utf-8"))
@@ -84,17 +84,23 @@ def extend_arr(arr, length):
     return numpy.full(length, arr.item()) if arr.size == 1 else arr
 
 def is_valid_field(min_val, max_val):
-    blank = min_val.strip() == "' '" or max_val.strip() == "' '"
-    return blank or to_float(min_val) <= to_float(max_val)
+    return min_val <= max_val
 
 def get_pad_value(info, index):
     if index < 0 or info is None:
         return None
-    return to_float(info["Pad"][index])
+    return to_float(info[index].pad)
 
 def has_quality(value_index, names):
     quality_index = value_index + 1
     return quality_index < len(names) and (names[quality_index].startswith("Quality") or names[quality_index].startswith("Flag"))
+
+def is_acceptable_quality(quality_value):
+    bad_qualities = ["3", "4"]
+    for value in bad_qualities:
+        if value in quality_value:
+            return False
+    return True
 
 def get_int(value):
     num = to_float(value)
@@ -106,7 +112,7 @@ def get_int(value):
 def extract_data(source, index, min_vals, max_vals, replace, has_quality=False):
     if index >= 0 and is_valid_field(min_vals[index], max_vals[index]):
         return reinsert_nan(
-            (numpy.nan if has_quality and get_int(d[index+1]) in [3, 4] else to_float(d[index]) for d in source),
+            (numpy.nan if has_quality and is_acceptable_quality(str(d[index+1])) else to_float(d[index]) for d in source),
             replace,
             length=len(source))
     else:
@@ -242,7 +248,7 @@ def convert_oxygen(
         return None, False, False
 
 def get_data(col, bucket, before=None):
-    data = [[datum.time, datum.datum] for datum in col if datum.bucket == bucket]
+    data = [[datum.time, datum.datum] for datum in col if datum.bucket == bucket and not numpy.isnan(datum.datum)]
     if before is not None:
         data = [[t, d] for t, d in data if t < before]
     return zip(*data) if len(data) > 0 else [[], []]
@@ -365,8 +371,6 @@ class Inlet(object):
         out = []
         once = [False] * 2
         for t, d, datum in zip(times, depths, data):
-            if (not isinstance(t, datetime.datetime) and numpy.isnan(t)) or numpy.isnan(d) or numpy.isnan(datum):
-                continue
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
@@ -387,7 +391,7 @@ class Inlet(object):
             elif self.is_deep(d):
                 category = DEEP
             else:
-                continue
+                category = "ignore"
             out.append(
                 InletData(
                     get_datetime(t),
@@ -398,6 +402,8 @@ class Inlet(object):
                     filename,
                     computed=computed,
                     assumed_density=assumed_density))
+        if len(out) == 0:
+            logging.warning(f"Data from {filename} not used")
         return out
 
     def add_data_from_netcdf(self, data):
@@ -427,8 +433,8 @@ class Inlet(object):
             if pressure is not None:
                 depth = gsw.z_from_p(get_array(pressure), latitude) * -1
             else:
-                logging.warning(f"{get_scalar(data.filename)} does not have depth or pressure data. Skipping")
-                return
+                logging.warning(f"{get_scalar(data.filename)} does not have depth or pressure data. Treating depth as NaN")
+                depth = numpy.nan
 
         salinity, salinity_computed = convert_salinity(
             salinity,
@@ -481,20 +487,26 @@ class Inlet(object):
                 assumed_density=oxygen_assumed_density))
 
     def add_data_from_shell(self, data):
-        names, units, min_vals, max_vals = data.channels["Name"], data.channels["Units"], data.channels["Minimum"], data.channels["Maximum"]
+        # TODO: rewrite to accommodate new parser
+        channels = data.file.channels
+        channel_details = data.file.channel_details
+        names = [channel.name for channel in channels]
+        units = [channel.units for channel in channels]
+        min_vals = [channel.minimum for channel in channels]
+        max_vals = [channel.maximum for channel in channels]
 
-        longitude, latitude = data.location["LONGITUDE"], data.location["LATITUDE"]
+        longitude, latitude = data.location.longitude, data.location.latitude
 
         time_idx = find_first(names, "Date", "DATE")
         if time_idx < 0:
             # time not included in data, just use start date
-            time = numpy.full(len(data.data), data.start_dateobj)
+            time = numpy.full(len(data.data), data.get_time())
         else:
             # time included in data
-            time = extract_data(data.data, time_idx, min_vals, max_vals, data.start_dateobj)
+            time = extract_data(data.data, time_idx, min_vals, max_vals, data.get_time())
 
         depth_idx = find_first(names, "Depth", "DEPTH")
-        depth_pad = get_pad_value(data.channel_details, depth_idx)
+        depth_pad = get_pad_value(channel_details, depth_idx)
         depth_data = extract_data(
             data.data,
             depth_idx,
@@ -504,7 +516,7 @@ class Inlet(object):
             has_quality(depth_idx, names))
 
         temperature_idx = find_first(names, "Temperature", "TEMPERATURE")
-        temperature_pad = get_pad_value(data.channel_details, temperature_idx)
+        temperature_pad = get_pad_value(channel_details, temperature_idx)
         temperature_data = extract_data(
             data.data,
             temperature_idx,
@@ -514,7 +526,7 @@ class Inlet(object):
             has_quality(temperature_idx, names))
 
         salinity_idx = find_first(names, "Salinity", "SALINITY", "'Salinity", "'SALINITY")
-        salinity_pad = get_pad_value(data.channel_details, salinity_idx)
+        salinity_pad = get_pad_value(channel_details, salinity_idx)
         salinity_data = extract_data(
             data.data,
             salinity_idx,
@@ -524,7 +536,7 @@ class Inlet(object):
             has_quality(salinity_idx, names))
 
         oxygen_idx = find_first(names, "Oxygen", "OXYGEN")
-        oxygen_pad = get_pad_value(data.channel_details, oxygen_idx)
+        oxygen_pad = get_pad_value(channel_details, oxygen_idx)
         oxygen_data = extract_data(
             data.data,
             oxygen_idx,
@@ -534,7 +546,7 @@ class Inlet(object):
             has_quality(oxygen_idx, names))
 
         pressure_idx = find_first(names, "Pressure", "PRESSURE")
-        pressure_pad = get_pad_value(data.channel_details, pressure_idx)
+        pressure_pad = get_pad_value(channel_details, pressure_idx)
         pressure_data = extract_data(
             data.data,
             pressure_idx,

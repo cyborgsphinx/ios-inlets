@@ -1,10 +1,12 @@
 import argparse
+import datetime
 import inlets
-import cioos_data_transform.IosObsFile as ios
+import ios_shell.shell as ios
 import json
 import fnmatch
 import logging
 import matplotlib.pyplot as plt
+import numpy
 import pickle
 import os
 from shapely.geometry import Polygon
@@ -66,7 +68,7 @@ def chart_anomalies(inlet_list: list[inlets.Inlet], data_fn):
     plt.clf()
     for inlet, line_style in zip(inlet_list, INLET_LINES):
         totals = {}
-        data = data_fn(inlet)
+        data = [datum for datum in data_fn(inlet) if datum.bucket != "ignore" and not numpy.isnan(datum.datum)]
         for datum in data:
             year = datum.time.year
             if year not in totals:
@@ -108,11 +110,11 @@ def chart_salinity_anomalies(inlet_list: list[inlets.Inlet], show_figure: bool):
         plt.savefig(os.path.join("figures", f"deep-water-salinity-anomalies.png"))
 
 def import_data(data_obj):
-    data_obj.start_dateobj, data_obj.start_date = data_obj.get_date(opt='start')
+    data_obj.start_dateobj, data_obj.start_date = data_obj.get_date()
     try:
         data_obj.location = data_obj.get_location()
     except:
-        logging.info(f"{data_obj.filename} is missing latitude or longitude information. Assigning based on geographic area")
+        logging.warning(f"{data_obj.filename} is missing latitude or longitude information. Assigning based on geographic area")
         data_obj.location = data_obj.get_section("LOCATION")
         # python can only catch spelling mistakes in variables
         geographic_area = "GEOGRAPHIC AREA"
@@ -139,8 +141,7 @@ def import_data(data_obj):
     if data_obj.channel_details is None:
         logging.warning(f"Unable to get channel details from header for {data_obj.filename}...")
 
-    n_records = int(data_obj.file["NUMBER OF RECORDS"])
-    data_obj.data = data_obj.get_data(formatline=data_obj.get_format(), records=n_records)
+    data_obj.data = data_obj.get_data()
 
 def main():
     parser = argparse.ArgumentParser()
@@ -181,14 +182,17 @@ def main():
             for ext in exts:
                 for item in fnmatch.filter(files, f"*.{ext}"):
                     file_name = os.path.join(root, item)
-                    shell = ios.ObsFile(file_name, False)
+                    try:
+                        shell = ios.ShellFile.fromfile(file_name)
+                    except Exception as e:
+                        logging.exception(f"Failed to read {file_name}: {e}")
+                        continue
                     for inlet in inlet_list:
                         if inlet.contains(shell.get_location()):
                             # use item instead of file_name because the netcdf files don't store path information
                             # they also do not store the .nc extension, so this should be reasonable
                             if not inlet.has_data_from(item.lower()):
                                 try:
-                                    import_data(shell)
                                     inlet.add_data_from_shell(shell)
                                 except Exception as e:
                                     logging.exception(f"Exception occurred in {file_name}: {e}")
