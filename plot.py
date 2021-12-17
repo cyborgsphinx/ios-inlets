@@ -1,18 +1,11 @@
 import argparse
 import datetime
 import inlets
-import ios_shell.shell as ios
-import json
-import fnmatch
-import logging
 import matplotlib.pyplot as plt
 import numpy
-import pickle
 import os
-from shapely.geometry import Polygon
-import xarray
 
-PICKLE_NAME = "inlets.pickle"
+END = datetime.datetime(2000, 1, 1)
 
 def chart_data(inlet: inlets.Inlet, data_fn):
     # produce a matplotlib chart, which can be shown or saved at the upper level
@@ -26,24 +19,24 @@ def chart_data(inlet: inlets.Inlet, data_fn):
     plt.legend()
 
 def chart_temperatures(inlet: inlets.Inlet):
-    chart_data(inlet, lambda inlet, bucket: inlet.get_temperature_data(bucket))
+    chart_data(inlet, lambda inlet, bucket: inlet.get_temperature_data(bucket, before=END))
     plt.ylabel("Temperature (C)")
     plt.title(f"{inlet.name} Deep Water Temperatures")
 
 def chart_salinities(inlet: inlets.Inlet):
-    chart_data(inlet, lambda inlet, bucket: inlet.get_salinity_data(bucket))
+    chart_data(inlet, lambda inlet, bucket: inlet.get_salinity_data(bucket, before=END))
     plt.ylabel("Salinity (PSU)")
     plt.title(f"{inlet.name} Deep Water Salinity")
 
 def chart_oxygen_data(inlet: inlets.Inlet):
-    chart_data(inlet, lambda inlet, bucket: inlet.get_oxygen_data(bucket))
+    chart_data(inlet, lambda inlet, bucket: inlet.get_oxygen_data(bucket, before=END))
     plt.ylabel("DO (ml/l)")
     plt.title(f"{inlet.name} Deep Water Dissolved Oxygen")
 
 def chart_stations(inlet: inlets.Inlet):
     plt.clf()
     data = []
-    for year, stations in inlet.get_station_data().items():
+    for year, stations in inlet.get_station_data(before=END).items():
         data.extend([year for _ in range(len(stations))])
     n_bins = max(data) - min(data) + 1
     plt.hist(data, bins=n_bins, align="left", label=f"Number of files {len(data)}")
@@ -109,98 +102,15 @@ def chart_salinity_anomalies(inlet_list: list[inlets.Inlet], show_figure: bool):
     else:
         plt.savefig(os.path.join("figures", f"deep-water-salinity-anomalies.png"))
 
-def import_data(data_obj):
-    data_obj.start_dateobj, data_obj.start_date = data_obj.get_date()
-    try:
-        data_obj.location = data_obj.get_location()
-    except:
-        logging.warning(f"{data_obj.filename} is missing latitude or longitude information. Assigning based on geographic area")
-        data_obj.location = data_obj.get_section("LOCATION")
-        # python can only catch spelling mistakes in variables
-        geographic_area = "GEOGRAPHIC AREA"
-        latitude = "LATITUDE"
-        longitude = "LONGITUDE"
-        if geographic_area in data_obj.location:
-            if data_obj.location[geographic_area].strip() in ["Ind Arm", "Geo/Ind Arm"]:
-                data_obj.location[latitude] = 49.3
-                data_obj.location[longitude] = -122.9
-            if data_obj.location[geographic_area].strip() in ["Str. of Georgia", "Str.of Georgia", "Rupert Inlet"]:
-                # ignore data in this location
-                data_obj.location[latitude] = 0
-                data_obj.location[longitude] = 0
-            else:
-                logging.warning(f"{data_obj.filename} has unknown location {data_obj.location[geographic_area]}")
-        else:
-            logging.warning(f"{data_obj.filename} has unknown location")
-    data_obj.channels = data_obj.get_channels()
-    data_obj.channel_details = data_obj.get_channel_detail()
-    if "INSTRUMENT" in data_obj.get_list_of_sections():
-        data_obj.instrument = data_obj.get_section("INSTRUMENT")
-    else:
-        logging.info(f"{data_obj.filename} does not have an instrument field, depth must be included in data")
-    if data_obj.channel_details is None:
-        logging.warning(f"Unable to get channel details from header for {data_obj.filename}...")
-
-    data_obj.data = data_obj.get_data()
-
 def main():
     parser = argparse.ArgumentParser()
+    # inlet retrieval args
     parser.add_argument("-r", "--from-saved", action="store_true")
-    parser.add_argument("-s", "--show-figure", action="store_true")
     parser.add_argument("-n", "--skip-netcdf", action="store_true")
+    # plot args
+    parser.add_argument("-s", "--show-figure", action="store_true")
     args = parser.parse_args()
-    inlet_list = []
-    if args.from_saved:
-        with open(PICKLE_NAME, mode="rb") as f:
-            inlet_list = pickle.load(f)
-    else:
-        with open("inlets.geojson") as f:
-            contents = json.load(f)["features"]
-            for content in contents:
-                name = content["properties"]["name"]
-                boundaries = content["properties"]["boundaries"]
-                polygon = Polygon(content["geometry"]["coordinates"][0])
-                inlet_list.append(inlets.Inlet(name, polygon, boundaries))
-
-        if not args.skip_netcdf:
-            for root, _, files in os.walk(os.path.join("data", "netCDF_Data")):
-                for item in fnmatch.filter(files, "*.nc"):
-                    file_name = os.path.join(root, item)
-                    data = xarray.open_dataset(file_name)
-                    for inlet in inlet_list:
-                        if inlet.contains(data):
-                            try:
-                                inlet.add_data_from_netcdf(data)
-                            except:
-                                logging.exception(f"Exception occurred in {file_name}")
-                                raise
-
-        shell_exts = ["bot", "che", "cdt", "ubc", "med", "xbt"]
-        # make a list of all elements in shell_exts followed by their str.upper() versions
-        exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
-        for root, dirs, files in os.walk("data"):
-            for ext in exts:
-                for item in fnmatch.filter(files, f"*.{ext}"):
-                    file_name = os.path.join(root, item)
-                    try:
-                        shell = ios.ShellFile.fromfile(file_name)
-                    except Exception as e:
-                        logging.exception(f"Failed to read {file_name}: {e}")
-                        continue
-                    for inlet in inlet_list:
-                        if inlet.contains(shell.get_location()):
-                            # use item instead of file_name because the netcdf files don't store path information
-                            # they also do not store the .nc extension, so this should be reasonable
-                            if not inlet.has_data_from(item.lower()):
-                                try:
-                                    inlet.add_data_from_shell(shell)
-                                except Exception as e:
-                                    logging.exception(f"Exception occurred in {file_name}: {e}")
-                                    continue
-            if "HISTORY" in dirs:
-                dirs.remove("HISTORY")
-        with open(PICKLE_NAME, mode="wb") as f:
-            pickle.dump(inlet_list, f)
+    inlet_list = inlets.get_inlets(args.from_saved, args.skip_netcdf)
     for inlet in inlet_list:
         do_chart(inlet, "temperature", args.show_figure, chart_temperatures)
         do_chart(inlet, "salinity", args.show_figure, chart_salinities)

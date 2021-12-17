@@ -25,6 +25,7 @@ mypy = "^0.910"
 
 [tool.poetry.scripts]
 plot = "plot:main"
+search = "search:main"
 
 [tool.pyright]
 exclude = ["data", ".git", "**/__pycache__"]

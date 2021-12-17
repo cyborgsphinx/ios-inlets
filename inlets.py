@@ -1,14 +1,20 @@
+from dataclasses import dataclass
 import datetime
+import fnmatch
 import gsw
 import itertools
+import json
 import logging
 import numpy
 import os
 import pandas
+import pickle
 import re
 from shapely.geometry import Point, Polygon
 import xarray
+import ios_shell.shell as ios
 
+PICKLE_NAME = "inlets.pickle"
 SHALLOW = "shallow"
 MIDDLE = "middle"
 DEEP = "deep"
@@ -83,9 +89,6 @@ def find_pressure_data(data):
 def extend_arr(arr, length):
     return numpy.full(length, arr.item()) if arr.size == 1 else arr
 
-def is_valid_field(min_val, max_val):
-    return min_val <= max_val
-
 def get_pad_value(info, index):
     if index < 0 or info is None:
         return None
@@ -109,8 +112,8 @@ def get_int(value):
     else:
         return int(num)
 
-def extract_data(source, index, min_vals, max_vals, replace, has_quality=False):
-    if index >= 0 and is_valid_field(min_vals[index], max_vals[index]):
+def extract_data(source, index, replace, has_quality=False):
+    if index >= 0:
         return reinsert_nan(
             (numpy.nan if has_quality and is_acceptable_quality(str(d[index+1])) else to_float(d[index]) for d in source),
             replace,
@@ -250,28 +253,28 @@ def convert_oxygen(
 def get_data(col, bucket, before=None):
     data = [[datum.time, datum.datum] for datum in col if datum.bucket == bucket and not numpy.isnan(datum.datum)]
     if before is not None:
-        data = [[t, d] for t, d in data if t < before]
+        data = [[t, d] for t, d in data if t.year < before.year]
     return zip(*data) if len(data) > 0 else [[], []]
 
+@dataclass
 class InletData(object):
-    def __init__(
-            self,
-            time,
-            bucket,
-            datum,
-            longitude,
-            latitude,
-            filename,
-            computed=False,
-            assumed_density=False):
-        self.time = time
-        self.bucket = bucket
-        self.datum = datum
-        self.longitude = longitude
-        self.latitude = latitude
-        self.filename = os.path.basename(filename).lower()
-        self.computed = computed
-        self.assumed_density = assumed_density
+    time: datetime.datetime
+    bucket: str
+    datum: float
+    longitude: float
+    latitude: float
+    filename: str
+    computed: bool = False
+    assumed_density: bool = False
+
+#THRESHOLD = 20
+
+def get_outliers(col, bucket="all", before=None):
+    data = [datum for datum in col if (bucket == "all" or datum.bucket == bucket) and not numpy.isnan(datum.datum)]
+    if before is not None:
+        data = [datum for datum in data if datum.time.year < before.year]
+    #avg = sum([datum.datum for datum in data]) / len(data)
+    return [datum for datum in data if datum.datum < 3]#[datum for datum in data if abs(datum.datum - avg) > THRESHOLD]
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
@@ -293,6 +296,15 @@ class Inlet(object):
     def get_oxygen_data(self, bucket, before=None):
         return get_data(self.oxygen_data, bucket, before)
 
+    def get_temperature_outliers(self, bucket="all", before=None):
+        return get_outliers(self.temperature_data, bucket, before)
+
+    def get_salinity_outliers(self, bucket="all", before=None):
+        return get_outliers(self.salinity_data, bucket, before)
+
+    def get_oxygen_outliers(self, bucket="all", before=None):
+        return get_outliers(self.oxygen_data, bucket, before)
+
     def has_temperature_data(self):
         return len(self.temperature_data) > 0
 
@@ -307,7 +319,7 @@ class Inlet(object):
         salinity_data = filter(lambda x: x.time.year < before.year, self.salinity_data) if before is not None else self.salinity_data
         oxygen_data = filter(lambda x: x.time.year < before.year, self.oxygen_data) if before is not None else self.oxygen_data
         for datum in itertools.chain(temperature_data, salinity_data, oxygen_data):
-            if datum.filename == file_name:
+            if os.path.basename(datum.filename).lower() == os.path.basename(file_name).lower():
                 return True
         return False
 
@@ -369,7 +381,7 @@ class Inlet(object):
             logging.warning(f"Data from {filename} contains times, depths, and data of different lengths")
 
         out = []
-        once = [False] * 2
+        once = [False] * 3
         for t, d, datum in zip(times, depths, data):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
@@ -384,6 +396,10 @@ class Inlet(object):
                     logging.warning(f"Data from {filename} has value {placeholder}, which is likely a standin for NaN")
                     once[1] = True
                 continue
+            if datum < 0:
+                if not once[2]:
+                    logging.warning(f"Data from {filename} contains negative values, which are likely either incorrect or placeholders")
+                once[2] = True
             if self.is_shallow(d):
                 category = SHALLOW
             elif self.is_middle(d):
@@ -487,13 +503,10 @@ class Inlet(object):
                 assumed_density=oxygen_assumed_density))
 
     def add_data_from_shell(self, data):
-        # TODO: rewrite to accommodate new parser
         channels = data.file.channels
         channel_details = data.file.channel_details
         names = [channel.name for channel in channels]
         units = [channel.units for channel in channels]
-        min_vals = [channel.minimum for channel in channels]
-        max_vals = [channel.maximum for channel in channels]
 
         longitude, latitude = data.location.longitude, data.location.latitude
 
@@ -503,15 +516,13 @@ class Inlet(object):
             time = numpy.full(len(data.data), data.get_time())
         else:
             # time included in data
-            time = extract_data(data.data, time_idx, min_vals, max_vals, data.get_time())
+            time = extract_data(data.data, time_idx, data.get_time())
 
         depth_idx = find_first(names, "Depth", "DEPTH")
         depth_pad = get_pad_value(channel_details, depth_idx)
         depth_data = extract_data(
             data.data,
             depth_idx,
-            min_vals,
-            max_vals,
             depth_pad,
             has_quality(depth_idx, names))
 
@@ -520,8 +531,6 @@ class Inlet(object):
         temperature_data = extract_data(
             data.data,
             temperature_idx,
-            min_vals,
-            max_vals,
             temperature_pad,
             has_quality(temperature_idx, names))
 
@@ -530,8 +539,6 @@ class Inlet(object):
         salinity_data = extract_data(
             data.data,
             salinity_idx,
-            min_vals,
-            max_vals,
             salinity_pad,
             has_quality(salinity_idx, names))
 
@@ -540,8 +547,6 @@ class Inlet(object):
         oxygen_data = extract_data(
             data.data,
             oxygen_idx,
-            min_vals,
-            max_vals,
             oxygen_pad,
             has_quality(oxygen_idx, names))
 
@@ -550,8 +555,6 @@ class Inlet(object):
         pressure_data = extract_data(
             data.data,
             pressure_idx,
-            min_vals,
-            max_vals,
             pressure_pad,
             has_quality(pressure_idx, names))
 
@@ -561,6 +564,9 @@ class Inlet(object):
             else:
                 logging.warning(f"{data.filename} does not have depth or pressure data. Skipping")
                 return
+        elif pressure_data is None:
+            # depth_data is not None in this case
+            pressure_data = gsw.p_from_z(depth_data * -1, latitude)
 
         salinity_data, salinity_computed = convert_salinity(
             salinity_data,
@@ -609,3 +615,58 @@ class Inlet(object):
                 placeholder=oxygen_pad,
                 computed=oxygen_computed,
                 assumed_density=oxygen_assumed_density))
+
+def get_inlets(from_saved=False, skip_netcdf=False):
+    inlet_list = []
+    if from_saved:
+        with open(PICKLE_NAME, mode="rb") as f:
+            inlet_list = pickle.load(f)
+    else:
+        with open("inlets.geojson") as f:
+            contents = json.load(f)["features"]
+            for content in contents:
+                name = content["properties"]["name"]
+                boundaries = content["properties"]["boundaries"]
+                polygon = Polygon(content["geometry"]["coordinates"][0])
+                inlet_list.append(Inlet(name, polygon, boundaries))
+
+        if not skip_netcdf:
+            for root, _, files in os.walk(os.path.join("data", "netCDF_Data")):
+                for item in fnmatch.filter(files, "*.nc"):
+                    file_name = os.path.join(root, item)
+                    data = xarray.open_dataset(file_name)
+                    for inlet in inlet_list:
+                        if inlet.contains(data):
+                            try:
+                                inlet.add_data_from_netcdf(data)
+                            except:
+                                logging.exception(f"Exception occurred in {file_name}")
+                                raise
+
+        shell_exts = ["bot", "che", "cdt", "ubc", "med", "xbt"]
+        # make a list of all elements in shell_exts followed by their str.upper() versions
+        exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
+        for root, dirs, files in os.walk("data"):
+            for ext in exts:
+                for item in fnmatch.filter(files, f"*.{ext}"):
+                    file_name = os.path.join(root, item)
+                    try:
+                        shell = ios.ShellFile.fromfile(file_name)
+                    except Exception as e:
+                        logging.exception(f"Failed to read {file_name}: {e}")
+                        continue
+                    for inlet in inlet_list:
+                        if inlet.contains(shell.get_location()):
+                            # use item instead of file_name because the netcdf files don't store path information
+                            # they also do not store the .nc extension, so this should be reasonable
+                            if not inlet.has_data_from(item.lower()):
+                                try:
+                                    inlet.add_data_from_shell(shell)
+                                except Exception as e:
+                                    logging.exception(f"Exception occurred in {file_name}: {e}")
+                                    continue
+            if "HISTORY" in dirs:
+                dirs.remove("HISTORY")
+        with open(PICKLE_NAME, mode="wb") as f:
+            pickle.dump(inlet_list, f)
+    return inlet_list
