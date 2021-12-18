@@ -616,7 +616,7 @@ class Inlet(object):
                 computed=oxygen_computed,
                 assumed_density=oxygen_assumed_density))
 
-def get_inlets(from_saved=False, skip_netcdf=False):
+def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
     inlet_list = []
     if from_saved:
         with open(PICKLE_NAME, mode="rb") as f:
@@ -631,7 +631,7 @@ def get_inlets(from_saved=False, skip_netcdf=False):
                 inlet_list.append(Inlet(name, polygon, boundaries))
 
         if not skip_netcdf:
-            for root, _, files in os.walk(os.path.join("data", "netCDF_Data")):
+            for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
                 for item in fnmatch.filter(files, "*.nc"):
                     file_name = os.path.join(root, item)
                     data = xarray.open_dataset(file_name)
@@ -646,12 +646,12 @@ def get_inlets(from_saved=False, skip_netcdf=False):
         shell_exts = ["bot", "che", "cdt", "ubc", "med", "xbt"]
         # make a list of all elements in shell_exts followed by their str.upper() versions
         exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
-        for root, dirs, files in os.walk("data"):
+        for root, dirs, files in os.walk(data_dir):
             for ext in exts:
                 for item in fnmatch.filter(files, f"*.{ext}"):
                     file_name = os.path.join(root, item)
                     try:
-                        shell = ios.ShellFile.fromfile(file_name)
+                        shell = ios.ShellFile.fromfile(file_name, process_data=False)
                     except Exception as e:
                         logging.exception(f"Failed to read {file_name}: {e}")
                         continue
@@ -661,6 +661,7 @@ def get_inlets(from_saved=False, skip_netcdf=False):
                             # they also do not store the .nc extension, so this should be reasonable
                             if not inlet.has_data_from(item.lower()):
                                 try:
+                                    shell.process_data()
                                     inlet.add_data_from_shell(shell)
                                 except Exception as e:
                                     logging.exception(f"Exception occurred in {file_name}: {e}")

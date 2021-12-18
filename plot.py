@@ -107,10 +107,11 @@ def main():
     # inlet retrieval args
     parser.add_argument("-r", "--from-saved", action="store_true")
     parser.add_argument("-n", "--skip-netcdf", action="store_true")
+    parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     # plot args
     parser.add_argument("-s", "--show-figure", action="store_true")
     args = parser.parse_args()
-    inlet_list = inlets.get_inlets(args.from_saved, args.skip_netcdf)
+    inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf)
     for inlet in inlet_list:
         do_chart(inlet, "temperature", args.show_figure, chart_temperatures)
         do_chart(inlet, "salinity", args.show_figure, chart_salinities)

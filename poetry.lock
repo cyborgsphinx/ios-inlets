@@ -199,7 +199,7 @@ python-versions = "*"
 
 [[package]]
 name = "ios-shell"
-version = "0.1.30"
+version = "0.1.31"
 description = ""
 category = "main"
 optional = false
@@ -213,7 +213,7 @@ fortranformat = "^1.0.1"
 type = "git"
 url = "ssh://git@github.com/cyborgsphinx/ios-shell.git"
 reference = "main"
-resolved_reference = "1b61735359feff736d854d01dacf79a88bb9f295"
+resolved_reference = "485cd061acce7737301892ab4ba2cbb5526b6785"
 
 [[package]]
 name = "ipykernel"

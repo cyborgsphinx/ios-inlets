@@ -28,12 +28,13 @@ def main():
     # inlet retrieval args
     parser.add_argument("-r", "--from-saved", action="store_true")
     parser.add_argument("-n", "--skip-netcdf", action="store_true")
+    parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     # search args
     parser.add_argument("-b", "--before", metavar="YEAR", type=int, nargs="?", default=None)
     parser.add_argument("-g", "--greater-than", type=int, nargs="?", default=None)
     parser.add_argument("-l", "--lesser-than", type=int, nargs="?", default=None)
     args = parser.parse_args()
-    inlet_list = inlets.get_inlets(args.from_saved, args.skip_netcdf)
+    inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf)
 
     if args.before is not None:
         inlet_list = [take_before(inlet, args.before) for inlet in inlet_list]
