@@ -402,6 +402,7 @@ class Inlet(object):
                 if not once[2]:
                     logging.warning(f"Data from {filename} contains negative values, which are likely either incorrect or placeholders")
                 once[2] = True
+                datum = numpy.nan
             if self.is_shallow(d):
                 category = SHALLOW
             elif self.is_middle(d):
