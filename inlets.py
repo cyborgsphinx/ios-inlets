@@ -11,6 +11,7 @@ import pandas
 import pickle
 import re
 from shapely.geometry import Point, Polygon
+from typing import List
 import xarray
 import ios_shell.shell as ios
 
@@ -48,7 +49,7 @@ def get_array(array):
     else:
         return array
 
-def find_first(source: list[str], *args):
+def find_first(source: List[str], *args):
     for i, s in enumerate(source):
         for prefix in args:
             if s.startswith(prefix):
@@ -61,8 +62,10 @@ def to_float(source):
         return source
     elif isinstance(source, bytes):
         return numpy.nan if source.strip() in [b"' '", b"n/a", b""] else float(source.strip().decode("utf-8"))
-    else:
+    elif isinstance(source, str):
         return numpy.nan if source.strip() in ["' '", "n/a", ""] else float(source.strip())
+    else:
+        raise ValueError(f"to_float called on {source}")
 
 def find_any(source, *attrs):
     for attr in attrs:
@@ -113,14 +116,13 @@ def get_int(value):
         return int(num)
 
 def extract_data(source, index, replace, has_quality=False):
-    if index >= 0:
-        return reinsert_nan(
-            (numpy.nan if has_quality and is_acceptable_quality(str(d[index+1])) else to_float(d[index]) for d in source),
-            replace,
-            length=len(source))
-    else:
+    if index < 0:
         return None
-
+    return reinsert_nan(
+        (numpy.nan if has_quality and not is_acceptable_quality(str(row[index+1])) else to_float(row[index]) for row in source),
+        replace,
+        length=len(source)
+    )
 def warn_unknown_variable(data, var):
     # check if there is a potential variable based on the broader name
     var_list = []
@@ -277,7 +279,7 @@ def get_outliers(col, bucket="all", before=None):
     return [datum for datum in data if datum.datum < 3]#[datum for datum in data if abs(datum.datum - avg) > THRESHOLD]
 
 class Inlet(object):
-    def __init__(self, name: str, polygon: Polygon, boundaries: list[int]):
+    def __init__(self, name: str, polygon: Polygon, boundaries: List[int]):
         self.name = name
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])

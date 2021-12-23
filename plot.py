@@ -4,6 +4,7 @@ import inlets
 import matplotlib.pyplot as plt
 import numpy
 import os
+from typing import List
 
 END = datetime.datetime(2000, 1, 1)
 
@@ -57,7 +58,7 @@ def do_chart(inlet: inlets.Inlet, kind: str, show_figure: bool, chart_fn):
 
 INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s"]
 
-def chart_anomalies(inlet_list: list[inlets.Inlet], data_fn):
+def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn):
     plt.clf()
     for inlet, line_style in zip(inlet_list, INLET_LINES):
         totals = {}
@@ -80,7 +81,7 @@ def chart_anomalies(inlet_list: list[inlets.Inlet], data_fn):
     plt.legend()
 
 
-def chart_temperature_anomalies(inlet_list: list[inlets.Inlet], show_figure: bool):
+def chart_temperature_anomalies(inlet_list: List[inlets.Inlet], show_figure: bool):
     print("Producing temperature anomaly plot")
     chart_anomalies(inlet_list, lambda inlet: inlet.temperature_data)
 
@@ -91,7 +92,7 @@ def chart_temperature_anomalies(inlet_list: list[inlets.Inlet], show_figure: boo
     else:
         plt.savefig(os.path.join("figures", f"deep-water-temperature-anomalies.png"))
 
-def chart_salinity_anomalies(inlet_list: list[inlets.Inlet], show_figure: bool):
+def chart_salinity_anomalies(inlet_list: List[inlets.Inlet], show_figure: bool):
     print("Producing salinity anomaly plot")
     chart_anomalies(inlet_list, lambda inlet: inlet.salinity_data)
 

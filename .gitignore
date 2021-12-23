@@ -2,6 +2,7 @@ data/
 notebooks/
 .ipynb_checkpoints/
 .vscode/
+.vs/
 
 *.pyc
 *.png
