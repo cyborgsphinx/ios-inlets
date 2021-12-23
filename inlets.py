@@ -645,7 +645,7 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
                                 logging.exception(f"Exception occurred in {file_name}")
                                 raise
 
-        shell_exts = ["bot", "che", "cdt", "ubc", "med", "xbt"]
+        shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt"]
         # make a list of all elements in shell_exts followed by their str.upper() versions
         exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
         for root, dirs, files in os.walk(data_dir):
