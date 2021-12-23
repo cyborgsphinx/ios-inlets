@@ -9,6 +9,13 @@ def take_before(inlet, before):
     return inlet
 
 
+def take_after(inlet, after):
+    inlet.temperature_data = [datum for datum in inlet.temperature_data if datum.time.year > after]
+    inlet.salinity_data = [datum for datum in inlet.salinity_data if datum.time.year > after]
+    inlet.oxygen_data = [datum for datum in inlet.oxygen_data if datum.time.year > after]
+    return inlet
+
+
 def take_greater_than(inlet, greater_than):
     inlet.temperature_data = [datum for datum in inlet.temperature_data if datum.datum > greater_than]
     inlet.salinity_data = [datum for datum in inlet.salinity_data if datum.datum > greater_than]
@@ -23,6 +30,21 @@ def take_lesser_than(inlet, lesser_than):
     return inlet
 
 
+def print_data(inlet, **kwargs):
+    only_filename = kwargs["filenameonly"] if "filenameonly" in kwargs else False
+
+    print(inlet.name, "\n")
+    if only_filename:
+        print("Temperature Data:", [datum.filename for datum in inlet.temperature_data])
+        print("Salinity Data:", [datum.filename for datum in inlet.salinity_data])
+        print("Oxygen Data:", [datum.filename for datum in inlet.oxygen_data])
+    else:
+        print("Temperature Data:", inlet.temperature_data)
+        print("Salinity Data:", inlet.salinity_data)
+        print("Oxygen Data:", inlet.oxygen_data)
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser()
     # inlet retrieval args
@@ -31,24 +53,29 @@ def main():
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     # search args
     parser.add_argument("-b", "--before", metavar="YEAR", type=int, nargs="?", default=None)
+    parser.add_argument("-a", "--after", metavar="YEAR", type=int, nargs="?", default=None)
     parser.add_argument("-g", "--greater-than", type=int, nargs="?", default=None)
     parser.add_argument("-l", "--lesser-than", type=int, nargs="?", default=None)
+    parser.add_argument("-i", "--inlet-name", type=str, nargs="?", default=None)
+    parser.add_argument("--file-name", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf)
 
     if args.before is not None:
         inlet_list = [take_before(inlet, args.before) for inlet in inlet_list]
+    if args.after is not None:
+        inlet_list = [take_after(inlet, args.after) for inlet in inlet_list]
     if args.greater_than is not None:
         inlet_list = [take_greater_than(inlet, args.greater_than) for inlet in inlet_list]
     if args.lesser_than is not None:
         inlet_list = [take_lesser_than(inlet, args.lesser_than) for inlet in inlet_list]
 
-    for inlet in inlet_list:
-        print(inlet.name, "\n")
-        print("Temperature Data:", inlet.temperature_data)
-        print("Salinity Data:", inlet.salinity_data)
-        print("Oxygen Data:", inlet.oxygen_data)
-        print()
+    if args.inlet_name is not None:
+        inlet = [inlet for inlet in inlet_list if inlet.name.lower() == args.inlet_name.lower()][0]
+        print_data(inlet, filenameonly=args.file_name)
+    else:
+        for inlet in inlet_list:
+            print_data(inlet, onlyfilename=args.file_name)
 
 
 if __name__ == "__main__":
