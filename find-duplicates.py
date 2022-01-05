@@ -7,8 +7,8 @@ import ios_shell.shell as ios
 
 def main():
     ids = {}
-    shell_exts = ["bot", "che", "cdt", "ubc", "med", "xbt"]
-    to_exclude = ["HISTORY", "old", "Archive", "Bottle", "BOTTLE"]
+    shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "adcp"]
+    to_exclude = ["HISTORY", "old", "Archive", "Bottle", "BOTTLE", "ALTERNATE_VERSION"]
     print(
         "Files included in",
         ", ".join(to_exclude),
@@ -31,9 +31,13 @@ def main():
                     continue
                 id = (
                     shell.file.start_time.strftime("%Y/%m/%dT%H:%M:%S")
+                    + shell.file.end_time.strftime("%Y/%m/%dT%H:%M:%S")
+                    + str(shell.file.number_of_records)
+                    + str(shell.file.number_of_channels)
                     + shell.administration.mission
                     + shell.location.station
                     + str(shell.location.event_number)
+                    + ext
                 )
                 if id in ids:
                     print(file_name, "may be a duplicate of", ids[id])
