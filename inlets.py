@@ -5,6 +5,7 @@ import gsw
 import itertools
 import json
 import logging
+import math
 import numpy
 import os
 import pandas
@@ -20,23 +21,29 @@ SHALLOW = "shallow"
 MIDDLE = "middle"
 DEEP = "deep"
 
+
 def is_in_bounds(val, lower, upper):
     if upper is not None:
         return lower <= val <= upper
     else:
         return lower <= val
 
+
 def get_datetime(d):
     return pandas.Timestamp(d).to_pydatetime()
 
+
 def reinsert_nan(data, placeholder, length=None):
+    if length is None:
+        length = data.size if hasattr(data, "size") else len(data)
     return numpy.fromiter(
-        (numpy.nan if x == placeholder else x for x in data),
-        float,
-        count=len(data) if length is None else length)
+        (numpy.nan if x == placeholder else x for x in data), float, count=length
+    )
+
 
 def get_scalar(array):
     return array.item()
+
 
 def get_array(array):
     if isinstance(array, xarray.DataArray):
@@ -49,6 +56,7 @@ def get_array(array):
     else:
         return array
 
+
 def find_first(source: List[str], *args):
     for i, s in enumerate(source):
         for prefix in args:
@@ -57,15 +65,23 @@ def find_first(source: List[str], *args):
     else:
         return -1
 
+
 def to_float(source):
     if isinstance(source, float) or isinstance(source, int):
         return source
     elif isinstance(source, bytes):
-        return numpy.nan if source.strip() in [b"' '", b"n/a", b""] else float(source.strip().decode("utf-8"))
+        return (
+            numpy.nan
+            if source.strip() in [b"' '", b"n/a", b""]
+            else float(source.strip().decode("utf-8"))
+        )
     elif isinstance(source, str):
-        return numpy.nan if source.strip() in ["' '", "n/a", ""] else float(source.strip())
+        return (
+            numpy.nan if source.strip() in ["' '", "n/a", ""] else float(source.strip())
+        )
     else:
         raise ValueError(f"to_float called on {source}")
+
 
 def find_any(source, *attrs):
     for attr in attrs:
@@ -74,39 +90,60 @@ def find_any(source, *attrs):
     else:
         return None
 
+
 def find_temperature_data(data):
-    return find_any(data, "TEMPRTN1", "TEMPST01", "TEMPPR01", "TEMPPR03", "TEMPS901", "TEMPS601")
+    return find_any(
+        data, "TEMPRTN1", "TEMPST01", "TEMPPR01", "TEMPPR03", "TEMPS901", "TEMPS601"
+    )
+
 
 def find_salinity_data(data):
-    return find_any(data, "PSLTZZ01", "ODSDM021", "SSALST01", "PSALST01", "PSALBST1", "sea_water_practical_salinity")
+    return find_any(
+        data,
+        "PSLTZZ01",
+        "ODSDM021",
+        "SSALST01",
+        "PSALST01",
+        "PSALBST1",
+        "sea_water_practical_salinity",
+    )
+
 
 def find_oxygen_data(data):
     return find_any(data, "DOXYZZ01", "DOXMZZ01")
 
+
 def find_depth_data(data):
     return find_any(data, "depth", "instrument_depth", "PPSAADCP")
+
 
 def find_pressure_data(data):
     return find_any(data, "PRESPR01", "sea_water_pressure")
 
+
 def extend_arr(arr, length):
-    return numpy.full(length, arr.item()) if arr.size == 1 else arr
+    length = arr.size if hasattr(arr, "size") else len(arr)
+    return numpy.full(length, arr.item()) if length == 1 else arr
+
 
 def get_pad_value(info, index):
     if index < 0 or info is None:
         return None
     return to_float(info[index].pad)
 
+
 def has_quality(value_index, names):
     quality_index = value_index + 1
-    return quality_index < len(names) and (names[quality_index].startswith("Quality") or names[quality_index].startswith("Flag"))
+    return quality_index < len(names) and (
+        names[quality_index].startswith("Quality")
+        or names[quality_index].startswith("Flag")
+    )
+
 
 def is_acceptable_quality(quality_value):
-    bad_qualities = ["3", "4"]
-    for value in bad_qualities:
-        if value in quality_value:
-            return False
-    return True
+    bad_qualities = ["2", "3", "4"]
+    return not any(value in quality_value for value in bad_qualities)
+
 
 def get_int(value):
     num = to_float(value)
@@ -115,14 +152,22 @@ def get_int(value):
     else:
         return int(num)
 
+
 def extract_data(source, index, replace, has_quality=False):
     if index < 0:
         return None
     return reinsert_nan(
-        (numpy.nan if has_quality and not is_acceptable_quality(str(row[index+1])) else to_float(row[index]) for row in source),
+        (
+            numpy.nan
+            if has_quality and not is_acceptable_quality(str(row[index + 1]))
+            else to_float(row[index])
+            for row in source
+        ),
         replace,
-        length=len(source)
+        length=len(source),
     )
+
+
 def warn_unknown_variable(data, var):
     # check if there is a potential variable based on the broader name
     var_list = []
@@ -130,40 +175,46 @@ def warn_unknown_variable(data, var):
         if re.search(var, getattr(data[key], "long_name", "").lower()):
             var_list.append(key)
     if len(var_list) != 0:
-        logging.warning(f"{get_scalar(data.filename)} has unknown {var} variable. Possible values: {var_list}")
+        logging.warning(
+            f"{get_scalar(data.filename)} has unknown {var} variable. Possible values: {var_list}"
+        )
+
 
 def warn_wrong_units(expected, actual, filename):
-    logging.warning(f"Cowardly refusing to perform the conversion from {actual} to {expected} in {filename}")
+    logging.warning(
+        f"Cowardly refusing to perform the conversion from {actual} to {expected} in {filename}"
+    )
+
 
 def calculate_density(
-        length,
-        temperature_C,
-        salinity_SP,
-        pressure_dbar,
-        longitude,
-        latitude,
-        filename):
+    length, temperature_C, salinity_SP, pressure_dbar, longitude, latitude, filename
+):
     assumed = False
     if all(x is not None for x in [temperature_C, salinity_SP, pressure_dbar]):
         salinity_SA = gsw.SA_from_SP(salinity_SP, pressure_dbar, longitude, latitude)
         density = gsw.rho(
             salinity_SA,
             gsw.CT_from_t(salinity_SA, temperature_C, pressure_dbar),
-            pressure_dbar)
+            pressure_dbar,
+        )
     else:
-        logging.warning(f"Not enough data in {filename} to accurately compute density. Calculating density as though all values are 0")
+        logging.warning(
+            f"Not enough data in {filename} to accurately compute density. Calculating density as though all values are 0"
+        )
         assumed = True
         density = numpy.full(length, gsw.rho([0], [0], 0)[0])
     return density, assumed
 
+
 def convert_umol_kg_to_mL_L(
-        oxygen_umol_kg,
-        longitude,
-        latitude,
-        temperature_C=None,
-        salinity_SP=None,
-        pressure_dbar=None,
-        filename="unknown file"):
+    oxygen_umol_kg,
+    longitude,
+    latitude,
+    temperature_C=None,
+    salinity_SP=None,
+    pressure_dbar=None,
+    filename="unknown file",
+):
     oxygen_umol_per_ml = 44.661
     metre_cube_per_litre = 0.001
     density, assumed_density = calculate_density(
@@ -173,18 +224,55 @@ def convert_umol_kg_to_mL_L(
         pressure_dbar,
         longitude,
         latitude,
-        filename)
-    return numpy.fromiter(
-        (o * d / oxygen_umol_per_ml * metre_cube_per_litre for o, d in zip(oxygen_umol_kg, density)),
-        float,
-        count=len(oxygen_umol_kg)
-    ), assumed_density
+        filename,
+    )
+    return (
+        numpy.fromiter(
+            (
+                o * d / oxygen_umol_per_ml * metre_cube_per_litre
+                for o, d in zip(oxygen_umol_kg, density)
+            ),
+            float,
+            count=len(oxygen_umol_kg),
+        ),
+        assumed_density,
+    )
 
-def convert_salinity(
-        salinity,
-        units,
-        filename):
-    """ Converts salinity into PSU
+
+def convert_percent_to_mL_L(
+    oxygen_percent,
+    temperature_C,
+    salinity_SP,
+):
+    # function from en.wikipedia.org/wiki/Oxygenation_(environmental)
+    kelven_offset = 273.15
+    temperature_K = [t + kelven_offset for t in temperature_C]
+    A1 = -173.4292
+    A2 = 249.6339
+    A3 = 143.3483
+    A4 = -21.8492
+    B1 = -0.033096
+    B2 = 0.014259
+    B3 = -0.001700
+    return numpy.fromiter(
+        (
+            o
+            * math.exp(
+                A1
+                + (A2 * 100 / t)
+                + (A3 * math.log(t / 100))
+                + (A4 * t / 100)
+                + (s * (B1 + (B2 * t / 100) + (B3 * ((t / 100) ** 2))))
+            )
+            for o, t, s in zip(oxygen_percent, temperature_K, salinity_SP)
+        ),
+        float,
+        count=len(oxygen_percent),
+    )
+
+
+def convert_salinity(salinity, units, filename):
+    """Converts salinity into PSU
 
     Arguments
     salinity - raw salinity data
@@ -206,16 +294,18 @@ def convert_salinity(
         warn_wrong_units("PSU", units, filename)
         return None, False
 
+
 def convert_oxygen(
-        oxygen,
-        units,
-        longitude,
-        latitude,
-        temperature_C,
-        salinity_SP,
-        pressure_dbar,
-        filename):
-    """ Converts oxygen concentration into mL/L
+    oxygen,
+    units,
+    longitude,
+    latitude,
+    temperature_C,
+    salinity_SP,
+    pressure_dbar,
+    filename,
+):
+    """Converts oxygen concentration into mL/L
 
     Arguments
     oxygen - raw oxygen data
@@ -242,21 +332,31 @@ def convert_oxygen(
             temperature_C,
             salinity_SP,
             pressure_dbar,
-            filename=filename)
+            filename=filename,
+        )
         return data, True, assumed_density
     elif units.lower() in ["mg/l"]:
         oxygen_mg_per_mL = 1.429
         data = oxygen * oxygen_mg_per_mL
         return data, True, False
+    elif units in ["%"]:
+        data = convert_percent_to_mL_L(oxygen, temperature_C, salinity_SP)
+        return data, False, False
     else:
         warn_wrong_units("mL/L", units, filename)
         return None, False, False
 
+
 def get_data(col, bucket, before=None):
-    data = [[datum.time, datum.datum] for datum in col if datum.bucket == bucket and not numpy.isnan(datum.datum)]
+    data = [
+        [datum.time, datum.datum]
+        for datum in col
+        if datum.bucket == bucket and not numpy.isnan(datum.datum)
+    ]
     if before is not None:
         data = [[t, d] for t, d in data if t.year < before.year]
     return zip(*data) if len(data) > 0 else [[], []]
+
 
 @dataclass
 class InletData(object):
@@ -269,14 +369,19 @@ class InletData(object):
     computed: bool = False
     assumed_density: bool = False
 
-#THRESHOLD = 20
 
 def get_outliers(col, bucket="all", before=None):
-    data = [datum for datum in col if (bucket == "all" or datum.bucket == bucket) and not numpy.isnan(datum.datum)]
+    data = [
+        datum
+        for datum in col
+        if (bucket == "all" or datum.bucket == bucket) and not numpy.isnan(datum.datum)
+    ]
     if before is not None:
         data = [datum for datum in data if datum.time.year < before.year]
-    #avg = sum([datum.datum for datum in data]) / len(data)
-    return [datum for datum in data if datum.datum < 3]#[datum for datum in data if abs(datum.datum - avg) > THRESHOLD]
+    return [
+        datum for datum in data if datum.datum < 3
+    ]
+
 
 class Inlet(object):
     def __init__(self, name: str, polygon: Polygon, boundaries: List[int]):
@@ -317,18 +422,45 @@ class Inlet(object):
         return len(self.oxygen_data) > 0
 
     def has_data_from(self, file_name, before=None):
-        temperature_data = filter(lambda x: x.time.year < before.year, self.temperature_data) if before is not None else self.temperature_data
-        salinity_data = filter(lambda x: x.time.year < before.year, self.salinity_data) if before is not None else self.salinity_data
-        oxygen_data = filter(lambda x: x.time.year < before.year, self.oxygen_data) if before is not None else self.oxygen_data
+        temperature_data = (
+            filter(lambda x: x.time.year < before.year, self.temperature_data)
+            if before is not None
+            else self.temperature_data
+        )
+        salinity_data = (
+            filter(lambda x: x.time.year < before.year, self.salinity_data)
+            if before is not None
+            else self.salinity_data
+        )
+        oxygen_data = (
+            filter(lambda x: x.time.year < before.year, self.oxygen_data)
+            if before is not None
+            else self.oxygen_data
+        )
         for datum in itertools.chain(temperature_data, salinity_data, oxygen_data):
-            if os.path.basename(datum.filename).lower() == os.path.basename(file_name).lower():
+            if (
+                os.path.basename(datum.filename).lower()
+                == os.path.basename(file_name).lower()
+            ):
                 return True
         return False
 
     def get_station_data(self, before=None):
-        temperature_data = filter(lambda x: x.time.year < before.year, self.temperature_data) if before is not None else self.temperature_data
-        salinity_data = filter(lambda x: x.time.year < before.year, self.salinity_data) if before is not None else self.salinity_data
-        oxygen_data = filter(lambda x: x.time.year < before.year, self.oxygen_data) if before is not None else self.oxygen_data
+        temperature_data = (
+            filter(lambda x: x.time.year < before.year, self.temperature_data)
+            if before is not None
+            else self.temperature_data
+        )
+        salinity_data = (
+            filter(lambda x: x.time.year < before.year, self.salinity_data)
+            if before is not None
+            else self.salinity_data
+        )
+        oxygen_data = (
+            filter(lambda x: x.time.year < before.year, self.oxygen_data)
+            if before is not None
+            else self.oxygen_data
+        )
         stations = {}
         for datum in itertools.chain(temperature_data, salinity_data, oxygen_data):
             year = datum.time.year
@@ -367,20 +499,23 @@ class Inlet(object):
         return is_in_bounds(depth, *self.deep_bounds)
 
     def produce_data(
-            self,
-            times,
-            depths,
-            data,
-            longitude,
-            latitude,
-            filename,
-            placeholder=-99.0,
-            computed=False,
-            assumed_density=False):
+        self,
+        times,
+        depths,
+        data,
+        longitude,
+        latitude,
+        filename,
+        placeholder=-99.0,
+        computed=False,
+        assumed_density=False,
+    ):
         times = extend_arr(times, len(data))
         depths = extend_arr(depths, len(data))
         if len(times) != len(data) or len(depths) != len(data):
-            logging.warning(f"Data from {filename} contains times, depths, and data of different lengths")
+            logging.warning(
+                f"Data from {filename} contains times, depths, and data of different lengths"
+            )
 
         out = []
         once = [False] * 3
@@ -388,19 +523,25 @@ class Inlet(object):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
-            if datum > 9.9e+36:
+            if datum > 9.9e36:
                 if not once[0]:
-                    logging.warning(f"Data from {filename} is larger than 9.9e+36, it may have been calulated poorly")
+                    logging.warning(
+                        f"Data from {filename} is larger than 9.9e+36, it may have been calulated poorly"
+                    )
                     once[0] = True
                 continue
             if datum == placeholder:
                 if not once[1]:
-                    logging.warning(f"Data from {filename} has value {placeholder}, which is likely a standin for NaN")
+                    logging.warning(
+                        f"Data from {filename} has value {placeholder}, which is likely a standin for NaN"
+                    )
                     once[1] = True
                 continue
             if datum < 0:
                 if not once[2]:
-                    logging.warning(f"Data from {filename} contains negative values, which are likely either incorrect or placeholders")
+                    logging.warning(
+                        f"Data from {filename} contains negative values, which are likely either incorrect or placeholders"
+                    )
                 once[2] = True
                 datum = numpy.nan
             if self.is_shallow(d):
@@ -420,13 +561,20 @@ class Inlet(object):
                     latitude,
                     filename,
                     computed=computed,
-                    assumed_density=assumed_density))
+                    assumed_density=assumed_density,
+                )
+            )
         if len(out) == 0:
             logging.warning(f"Data from {filename} not used")
         return out
 
     def add_data_from_netcdf(self, data):
-        time, longitude, latitude, filename = get_array(data.time), get_scalar(data.longitude), get_scalar(data.latitude), get_scalar(data.filename)
+        time, longitude, latitude, filename = (
+            get_array(data.time),
+            get_scalar(data.longitude),
+            get_scalar(data.latitude),
+            get_scalar(data.filename),
+        )
 
         depth = find_depth_data(data)
         if depth is None:
@@ -452,13 +600,14 @@ class Inlet(object):
             if pressure is not None:
                 depth = gsw.z_from_p(get_array(pressure), latitude) * -1
             else:
-                logging.warning(f"{get_scalar(data.filename)} does not have depth or pressure data. Treating depth as NaN")
+                logging.warning(
+                    f"{get_scalar(data.filename)} does not have depth or pressure data. Treating depth as NaN"
+                )
                 depth = numpy.nan
 
         salinity, salinity_computed = convert_salinity(
-            salinity,
-            None if salinity is None else salinity.units,
-            filename)
+            salinity, None if salinity is None else salinity.units, filename
+        )
 
         oxygen, oxygen_computed, oxygen_assumed_density = convert_oxygen(
             oxygen,
@@ -467,43 +616,55 @@ class Inlet(object):
             latitude,
             temperature,
             salinity,
-            pressure if pressure is not None else gsw.p_from_z(get_array(depth) * -1, latitude),
-            filename)
+            pressure
+            if pressure is not None
+            else gsw.p_from_z(get_array(depth) * -1, latitude),
+            filename,
+        )
 
         placeholder = -99
 
         if temperature is not None:
-            self.temperature_data.extend(self.produce_data(
-                get_array(time),
-                get_array(depth),
-                get_array(temperature),
-                longitude,
-                latitude,
-                filename,
-                placeholder=placeholder))
+            self.temperature_data.extend(
+                self.produce_data(
+                    get_array(time),
+                    get_array(depth),
+                    get_array(temperature),
+                    longitude,
+                    latitude,
+                    filename,
+                    placeholder=placeholder,
+                )
+            )
 
         if salinity is not None:
-            self.salinity_data.extend(self.produce_data(
-                get_array(time),
-                get_array(depth),
-                get_array(salinity),
-                longitude,
-                latitude,
-                filename,
-                placeholder=placeholder,
-                computed=salinity_computed))
+            self.salinity_data.extend(
+                self.produce_data(
+                    get_array(time),
+                    get_array(depth),
+                    get_array(salinity),
+                    longitude,
+                    latitude,
+                    filename,
+                    placeholder=placeholder,
+                    computed=salinity_computed,
+                )
+            )
 
         if oxygen is not None:
-            self.oxygen_data.extend(self.produce_data(
-                get_array(time),
-                get_array(depth),
-                get_array(oxygen),
-                longitude,
-                latitude,
-                filename,
-                placeholder=placeholder,
-                computed=oxygen_computed,
-                assumed_density=oxygen_assumed_density))
+            self.oxygen_data.extend(
+                self.produce_data(
+                    get_array(time),
+                    get_array(depth),
+                    get_array(oxygen),
+                    longitude,
+                    latitude,
+                    filename,
+                    placeholder=placeholder,
+                    computed=oxygen_computed,
+                    assumed_density=oxygen_assumed_density,
+                )
+            )
 
     def add_data_from_shell(self, data):
         channels = data.file.channels
@@ -513,21 +674,28 @@ class Inlet(object):
 
         longitude, latitude = data.location.longitude, data.location.latitude
 
-        time_idx = find_first(names, "Date", "DATE")
-        if time_idx < 0:
+        date_idx = find_first(names, "Date", "DATE")
+        if date_idx < 0:
             # time not included in data, just use start date
             time = numpy.full(len(data.data), data.get_time())
         else:
-            # time included in data
-            time = extract_data(data.data, time_idx, data.get_time())
+            time_idx = find_first(names, "Time", "TIME")
+            if time_idx < 0:
+                # only date included in data
+                time = [d[date_idx] for d in data.data]
+            else:
+                dates = [d[date_idx] for d in data.data]
+                times = [d[time_idx] for d in data.data]
+                time = [
+                    datetime.datetime.combine(d, t, tzinfo=data.get_time().tzinfo)
+                    for d, t in zip(dates, times)
+                ]
 
         depth_idx = find_first(names, "Depth", "DEPTH")
         depth_pad = get_pad_value(channel_details, depth_idx)
         depth_data = extract_data(
-            data.data,
-            depth_idx,
-            depth_pad,
-            has_quality(depth_idx, names))
+            data.data, depth_idx, depth_pad, has_quality(depth_idx, names)
+        )
 
         temperature_idx = find_first(names, "Temperature", "TEMPERATURE")
         temperature_pad = get_pad_value(channel_details, temperature_idx)
@@ -535,46 +703,44 @@ class Inlet(object):
             data.data,
             temperature_idx,
             temperature_pad,
-            has_quality(temperature_idx, names))
+            has_quality(temperature_idx, names),
+        )
 
-        salinity_idx = find_first(names, "Salinity", "SALINITY", "'Salinity", "'SALINITY")
+        salinity_idx = find_first(
+            names, "Salinity", "SALINITY", "'Salinity", "'SALINITY"
+        )
         salinity_pad = get_pad_value(channel_details, salinity_idx)
         salinity_data = extract_data(
-            data.data,
-            salinity_idx,
-            salinity_pad,
-            has_quality(salinity_idx, names))
+            data.data, salinity_idx, salinity_pad, has_quality(salinity_idx, names)
+        )
 
         oxygen_idx = find_first(names, "Oxygen", "OXYGEN")
         oxygen_pad = get_pad_value(channel_details, oxygen_idx)
         oxygen_data = extract_data(
-            data.data,
-            oxygen_idx,
-            oxygen_pad,
-            has_quality(oxygen_idx, names))
+            data.data, oxygen_idx, oxygen_pad, has_quality(oxygen_idx, names)
+        )
 
         pressure_idx = find_first(names, "Pressure", "PRESSURE")
         pressure_pad = get_pad_value(channel_details, pressure_idx)
         pressure_data = extract_data(
-            data.data,
-            pressure_idx,
-            pressure_pad,
-            has_quality(pressure_idx, names))
+            data.data, pressure_idx, pressure_pad, has_quality(pressure_idx, names)
+        )
 
         if depth_data is None:
             if pressure_data is not None:
                 depth_data = gsw.z_from_p(pressure_data, latitude) * -1
             else:
-                logging.warning(f"{data.filename} does not have depth or pressure data. Skipping")
+                logging.warning(
+                    f"{data.filename} does not have depth or pressure data. Skipping"
+                )
                 return
         elif pressure_data is None:
             # depth_data is not None in this case
             pressure_data = gsw.p_from_z(depth_data * -1, latitude)
 
         salinity_data, salinity_computed = convert_salinity(
-            salinity_data,
-            units[salinity_idx].strip(),
-            data.filename)
+            salinity_data, units[salinity_idx].strip(), data.filename
+        )
 
         oxygen_data, oxygen_computed, oxygen_assumed_density = convert_oxygen(
             oxygen_data,
@@ -583,41 +749,54 @@ class Inlet(object):
             latitude,
             temperature_data,
             salinity_data,
-            pressure_data if pressure_data is not None else gsw.p_from_z(depth_data * -1, latitude),
-            data.filename)
+            pressure_data
+            if pressure_data is not None
+            else gsw.p_from_z(depth_data * -1, latitude),
+            data.filename,
+        )
 
         if temperature_data is not None:
-            self.temperature_data.extend(self.produce_data(
-                time,
-                depth_data,
-                temperature_data,
-                longitude,
-                latitude,
-                data.filename,
-                placeholder=temperature_pad))
+            self.temperature_data.extend(
+                self.produce_data(
+                    time,
+                    depth_data,
+                    temperature_data,
+                    longitude,
+                    latitude,
+                    data.filename,
+                    placeholder=temperature_pad,
+                )
+            )
 
         if salinity_data is not None:
-            self.salinity_data.extend(self.produce_data(
-                time,
-                depth_data,
-                salinity_data,
-                longitude,
-                latitude,
-                data.filename,
-                placeholder=salinity_pad,
-                computed=salinity_computed))
+            self.salinity_data.extend(
+                self.produce_data(
+                    time,
+                    depth_data,
+                    salinity_data,
+                    longitude,
+                    latitude,
+                    data.filename,
+                    placeholder=salinity_pad,
+                    computed=salinity_computed,
+                )
+            )
 
         if oxygen_data is not None:
-            self.oxygen_data.extend(self.produce_data(
-                time,
-                depth_data,
-                oxygen_data,
-                longitude,
-                latitude,
-                data.filename,
-                placeholder=oxygen_pad,
-                computed=oxygen_computed,
-                assumed_density=oxygen_assumed_density))
+            self.oxygen_data.extend(
+                self.produce_data(
+                    time,
+                    depth_data,
+                    oxygen_data,
+                    longitude,
+                    latitude,
+                    data.filename,
+                    placeholder=oxygen_pad,
+                    computed=oxygen_computed,
+                    assumed_density=oxygen_assumed_density,
+                )
+            )
+
 
 def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
     inlet_list = []
@@ -648,7 +827,11 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
 
         shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt"]
         # make a list of all elements in shell_exts followed by their str.upper() versions
-        exts = [item for sublist in [[ext, ext.upper()] for ext in shell_exts] for item in sublist]
+        exts = [
+            item
+            for sublist in [[ext, ext.upper()] for ext in shell_exts]
+            for item in sublist
+        ]
         for root, dirs, files in os.walk(data_dir):
             for ext in exts:
                 for item in fnmatch.filter(files, f"*.{ext}"):
@@ -665,9 +848,13 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
                             if not inlet.has_data_from(item.lower()):
                                 try:
                                     shell.process_data()
+                                    if shell.administration.agency in ["University of Washington"]:
+                                        continue
                                     inlet.add_data_from_shell(shell)
                                 except Exception as e:
-                                    logging.exception(f"Exception occurred in {file_name}: {e}")
+                                    logging.exception(
+                                        f"Exception occurred in {file_name}: {e}"
+                                    )
                                     continue
             if "HISTORY" in dirs:
                 dirs.remove("HISTORY")
