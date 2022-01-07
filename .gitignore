@@ -10,3 +10,4 @@ notebooks/
 *.zip
 *.log
 *.txt
+*.profile

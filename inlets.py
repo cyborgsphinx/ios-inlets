@@ -397,6 +397,7 @@ class Inlet(object):
         self.salinity_data = []
         self.oxygen_data = []
         self.polygon = polygon
+        self.used_files = set()
 
     def get_temperature_data(self, bucket, before=None):
         return get_data(self.temperature_data, bucket, before)
@@ -425,29 +426,8 @@ class Inlet(object):
     def has_oxygen_data(self):
         return len(self.oxygen_data) > 0
 
-    def has_data_from(self, file_name, before=None):
-        temperature_data = (
-            filter(lambda x: x.time.year < before.year, self.temperature_data)
-            if before is not None
-            else self.temperature_data
-        )
-        salinity_data = (
-            filter(lambda x: x.time.year < before.year, self.salinity_data)
-            if before is not None
-            else self.salinity_data
-        )
-        oxygen_data = (
-            filter(lambda x: x.time.year < before.year, self.oxygen_data)
-            if before is not None
-            else self.oxygen_data
-        )
-        for datum in itertools.chain(temperature_data, salinity_data, oxygen_data):
-            if (
-                os.path.basename(datum.filename).lower()
-                == os.path.basename(file_name).lower()
-            ):
-                return True
-        return False
+    def has_data_from(self, file_name):
+        return os.path.basename(file_name).lower() in self.used_files
 
     def get_station_data(self, before=None):
         temperature_data = (
@@ -571,6 +551,8 @@ class Inlet(object):
             )
         if len(out) == 0:
             logging.warning(f"Data from {filename} not used")
+        else:
+            self.used_files.add(os.path.basename(filename).lower())
         return out
 
     def add_data_from_netcdf(self, data):
