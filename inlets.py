@@ -28,7 +28,7 @@ def get_length(arr):
 
 def is_in_bounds(val, lower, upper):
     if upper is not None:
-        return lower <= val <= upper
+        return lower <= val < upper
     else:
         return lower <= val
 
@@ -523,11 +523,9 @@ class Inlet(object):
                     once[1] = True
                 continue
             if datum < 0:
-                if not once[2]:
-                    logging.warning(
-                        f"Data from {filename} contains negative values, which are likely either incorrect or placeholders"
-                    )
-                once[2] = True
+                logging.warning(
+                    f"Data from {filename} contains negative values, which are likely either incorrect or placeholders: {datum} ~= {placeholder}"
+                )
                 datum = numpy.nan
             if self.is_shallow(d):
                 category = SHALLOW
@@ -680,12 +678,16 @@ class Inlet(object):
 
         depth_idx = find_first(names, "Depth", "DEPTH")
         depth_pad = get_pad_value(channel_details, depth_idx)
+        if depth_pad is None or numpy.isnan(depth_pad):
+            depth_pad = -99
         depth_data = extract_data(
             data.data, depth_idx, depth_pad, has_quality(depth_idx, names)
         )
 
         temperature_idx = find_first(names, "Temperature", "TEMPERATURE")
         temperature_pad = get_pad_value(channel_details, temperature_idx)
+        if temperature_pad is None or numpy.isnan(temperature_pad):
+            temperature_pad = -99
         temperature_data = extract_data(
             data.data,
             temperature_idx,
@@ -697,18 +699,24 @@ class Inlet(object):
             names, "Salinity", "SALINITY", "'Salinity", "'SALINITY"
         )
         salinity_pad = get_pad_value(channel_details, salinity_idx)
+        if salinity_pad is None or numpy.isnan(salinity_pad):
+            salinity_pad = -99
         salinity_data = extract_data(
             data.data, salinity_idx, salinity_pad, has_quality(salinity_idx, names)
         )
 
         oxygen_idx = find_first(names, "Oxygen", "OXYGEN")
         oxygen_pad = get_pad_value(channel_details, oxygen_idx)
+        if oxygen_pad is None or numpy.isnan(oxygen_pad):
+            oxygen_pad = -99
         oxygen_data = extract_data(
             data.data, oxygen_idx, oxygen_pad, has_quality(oxygen_idx, names)
         )
 
         pressure_idx = find_first(names, "Pressure", "PRESSURE")
         pressure_pad = get_pad_value(channel_details, pressure_idx)
+        if pressure_pad is None or numpy.isnan(pressure_pad):
+            pressure_pad = -99
         pressure_data = extract_data(
             data.data, pressure_idx, pressure_pad, has_quality(pressure_idx, names)
         )
@@ -835,7 +843,7 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
                             if not inlet.has_data_from(item.lower()):
                                 try:
                                     shell.process_data()
-                                    if shell.administration.agency in ["University of Washington"]:
+                                    if shell.administration.agency.strip() in ["Univeristy of Washington"]:
                                         continue
                                     inlet.add_data_from_shell(shell)
                                 except Exception as e:

@@ -138,6 +138,7 @@ def main():
     parser.add_argument("-s", "--show-figure", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf)
+    plt.figure(figsize=(8, 6))
     for inlet in inlet_list:
         do_chart(inlet, "temperature", args.show_figure, chart_temperatures)
         do_chart(inlet, "salinity", args.show_figure, chart_salinities)
@@ -145,6 +146,7 @@ def main():
         do_chart(inlet, "stations", args.show_figure, chart_stations)
     chart_temperature_anomalies(inlet_list, args.show_figure)
     chart_salinity_anomalies(inlet_list, args.show_figure)
+    plt.close()
 
 
 if __name__ == "__main__":
