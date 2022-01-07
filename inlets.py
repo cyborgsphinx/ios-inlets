@@ -22,6 +22,10 @@ MIDDLE = "middle"
 DEEP = "deep"
 
 
+def get_length(arr):
+    return arr.size if hasattr(arr, "size") else len(arr)
+
+
 def is_in_bounds(val, lower, upper):
     if upper is not None:
         return lower <= val <= upper
@@ -35,7 +39,7 @@ def get_datetime(d):
 
 def reinsert_nan(data, placeholder, length=None):
     if length is None:
-        length = data.size if hasattr(data, "size") else len(data)
+        length = get_length(data)
     return numpy.fromiter(
         (numpy.nan if x == placeholder else x for x in data), float, count=length
     )
@@ -122,8 +126,8 @@ def find_pressure_data(data):
 
 
 def extend_arr(arr, length):
-    length = arr.size if hasattr(arr, "size") else len(arr)
-    return numpy.full(length, arr.item()) if length == 1 else arr
+    arr_length = get_length(arr)
+    return numpy.full(length, arr.item()) if arr_length == 1 else arr
 
 
 def get_pad_value(info, index):
@@ -510,9 +514,10 @@ class Inlet(object):
         computed=False,
         assumed_density=False,
     ):
-        times = extend_arr(times, len(data))
-        depths = extend_arr(depths, len(data))
-        if len(times) != len(data) or len(depths) != len(data):
+        length = get_length(data)
+        times = extend_arr(times, length)
+        depths = extend_arr(depths, length)
+        if get_length(times) != get_length(data) or get_length(depths) != get_length(data):
             logging.warning(
                 f"Data from {filename} contains times, depths, and data of different lengths"
             )
