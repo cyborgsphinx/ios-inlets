@@ -10,9 +10,12 @@ END = datetime.datetime(2000, 1, 1)
 INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s"]
 
 
-def chart_data(inlet: inlets.Inlet, data_fn):
+def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
+    if len(limits) > 1:
+        axes = plt.axes()
+        axes.set_ylim(limits[0], limits[1])
     shallow_time, shallow_data = data_fn(inlet, inlets.SHALLOW)
     plt.plot(
         shallow_time,
@@ -32,27 +35,27 @@ def chart_data(inlet: inlets.Inlet, data_fn):
     plt.legend()
 
 
-def chart_temperatures(inlet: inlets.Inlet):
+def chart_temperatures(inlet: inlets.Inlet, limits: List[float]):
     chart_data(
-        inlet, lambda inlet, bucket: inlet.get_temperature_data(bucket, before=END)
+        inlet, limits, lambda inlet, bucket: inlet.get_temperature_data(bucket, before=END)
     )
     plt.ylabel("Temperature (C)")
     plt.title(f"{inlet.name} Deep Water Temperatures")
 
 
-def chart_salinities(inlet: inlets.Inlet):
-    chart_data(inlet, lambda inlet, bucket: inlet.get_salinity_data(bucket, before=END))
+def chart_salinities(inlet: inlets.Inlet, limits: List[float]):
+    chart_data(inlet, limits, lambda inlet, bucket: inlet.get_salinity_data(bucket, before=END))
     plt.ylabel("Salinity (PSU)")
     plt.title(f"{inlet.name} Deep Water Salinity")
 
 
-def chart_oxygen_data(inlet: inlets.Inlet):
-    chart_data(inlet, lambda inlet, bucket: inlet.get_oxygen_data(bucket, before=END))
+def chart_oxygen_data(inlet: inlets.Inlet, limits: List[float]):
+    chart_data(inlet, limits, lambda inlet, bucket: inlet.get_oxygen_data(bucket, before=END))
     plt.ylabel("DO (ml/l)")
     plt.title(f"{inlet.name} Deep Water Dissolved Oxygen")
 
 
-def chart_stations(inlet: inlets.Inlet):
+def chart_stations(inlet: inlets.Inlet, _limits: List[float]):
     plt.clf()
     data = []
     for year, stations in inlet.get_station_data(before=END).items():
@@ -70,7 +73,7 @@ def normalize(string: str):
 
 def do_chart(inlet: inlets.Inlet, kind: str, show_figure: bool, chart_fn):
     print(f"Producing {kind} plot for {inlet.name}")
-    chart_fn(inlet)
+    chart_fn(inlet, inlet.limits[kind] if kind in inlet.limits else [])
     if show_figure:
         plt.show()
     else:

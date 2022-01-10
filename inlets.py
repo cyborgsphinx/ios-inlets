@@ -12,7 +12,7 @@ import pandas
 import pickle
 import re
 from shapely.geometry import Point, Polygon
-from typing import List
+from typing import Dict, List
 import xarray
 import ios_shell.shell as ios
 
@@ -28,7 +28,7 @@ def get_length(arr):
 
 def is_in_bounds(val, lower, upper):
     if upper is not None:
-        return lower <= val < upper
+        return lower <= val <= upper
     else:
         return lower <= val
 
@@ -145,7 +145,7 @@ def has_quality(value_index, names):
 
 
 def is_acceptable_quality(quality_value):
-    bad_qualities = ["2", "3", "4"]
+    bad_qualities = ["3", "4"]
     return not any(value in quality_value for value in bad_qualities)
 
 
@@ -388,7 +388,7 @@ def get_outliers(col, bucket="all", before=None):
 
 
 class Inlet(object):
-    def __init__(self, name: str, polygon: Polygon, boundaries: List[int]):
+    def __init__(self, name: str, polygon: Polygon, boundaries: List[int], limits: Dict[str, List[float]]):
         self.name = name
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
@@ -397,6 +397,7 @@ class Inlet(object):
         self.salinity_data = []
         self.oxygen_data = []
         self.polygon = polygon
+        self.limits = limits
         self.used_files = set()
 
     def get_temperature_data(self, bucket, before=None):
@@ -804,8 +805,9 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
             for content in contents:
                 name = content["properties"]["name"]
                 boundaries = content["properties"]["boundaries"]
+                limits = content["properties"]["limits"] if "limits" in content["properties"] else {}
                 polygon = Polygon(content["geometry"]["coordinates"][0])
-                inlet_list.append(Inlet(name, polygon, boundaries))
+                inlet_list.append(Inlet(name, polygon, boundaries, limits))
 
         if not skip_netcdf:
             for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
@@ -843,8 +845,6 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
                             if not inlet.has_data_from(item.lower()):
                                 try:
                                     shell.process_data()
-                                    if shell.administration.agency.strip() in ["Univeristy of Washington"]:
-                                        continue
                                     inlet.add_data_from_shell(shell)
                                 except Exception as e:
                                     logging.exception(

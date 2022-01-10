@@ -5,7 +5,12 @@
       "type": "Feature",
       "properties": {
         "name": "Saanich Inlet",
-        "boundaries": [145, 170, 190]
+        "boundaries": [145, 170, 190],
+        "limits": {
+          "oxygen": [-0.1, 3.3],
+          "salinity": [30.8, 31.6],
+          "temperature": [7.9, 9.8]
+        }
       },
       "geometry": {
         "type": "Polygon",
