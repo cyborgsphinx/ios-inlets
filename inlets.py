@@ -880,7 +880,7 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
         ]
         for root, dirs, files in os.walk(data_dir):
             for ext in exts:
-                for item in fnmatch.filter(files, f"*.{ext}"):
+                for item in fnmatch.filter(files, "*." + ext):
                     file_name = os.path.join(root, item)
                     try:
                         shell = ios.ShellFile.fromfile(file_name, process_data=False)

@@ -6,7 +6,7 @@ import numpy
 import os
 from typing import List
 
-END = datetime.datetime(2000, 1, 1)
+END = datetime.datetime.now()
 INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s"]
 
 
@@ -37,20 +37,26 @@ def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
 
 def chart_temperatures(inlet: inlets.Inlet, limits: List[float]):
     chart_data(
-        inlet, limits, lambda inlet, bucket: inlet.get_temperature_data(bucket, before=END)
+        inlet,
+        limits,
+        lambda inlet, bucket: inlet.get_temperature_data(bucket, before=END),
     )
     plt.ylabel("Temperature (C)")
     plt.title(f"{inlet.name} Deep Water Temperatures")
 
 
 def chart_salinities(inlet: inlets.Inlet, limits: List[float]):
-    chart_data(inlet, limits, lambda inlet, bucket: inlet.get_salinity_data(bucket, before=END))
+    chart_data(
+        inlet, limits, lambda inlet, bucket: inlet.get_salinity_data(bucket, before=END)
+    )
     plt.ylabel("Salinity (PSU)")
     plt.title(f"{inlet.name} Deep Water Salinity")
 
 
 def chart_oxygen_data(inlet: inlets.Inlet, limits: List[float]):
-    chart_data(inlet, limits, lambda inlet, bucket: inlet.get_oxygen_data(bucket, before=END))
+    chart_data(
+        inlet, limits, lambda inlet, bucket: inlet.get_oxygen_data(bucket, before=END)
+    )
     plt.ylabel("DO (ml/l)")
     plt.title(f"{inlet.name} Deep Water Dissolved Oxygen")
 
