@@ -15,30 +15,12 @@ def data_path(source):
     [
         (10, 9, 11),
         (11, 9, 11),
-        pytest.param(9, 9, 11, marks=pytest.mark.xfail),
+        (9, 9, 11),
+        pytest.param(8, 9, 11, marks=pytest.mark.xfail),
     ],
 )
 def test_bounds_check(value, lower, upper):
     assert inlets.is_in_bounds(value, lower, upper)
-
-
-class Data(object):
-    def __init__(self, val):
-        self.val = val
-
-
-@pytest.mark.parametrize(
-    "source,attrs,expected",
-    [
-        (Data(9), ["val"], 9),
-        (Data(9), ["foo"], None),
-        (Data(9), ["foo", "val"], 9),
-        (Data(9), ["val", "bar"], 9),
-        (Data(9), ["foo", "bar"], None),
-    ],
-)
-def test_find_any(source, attrs, expected):
-    assert inlets.find_any(source, *attrs) == expected
 
 
 @pytest.mark.parametrize(
@@ -144,7 +126,7 @@ def test_find_depth_data(source):
     ],
 )
 def test_inlet_contains(polygon, point):
-    inlet = inlets.Inlet("Test Inlet", polygon, [1, 2, 3])
+    inlet = inlets.Inlet("Test Inlet", polygon, [1, 2, 3], {})
     assert inlet.contains(point)
 
 
@@ -174,7 +156,7 @@ def test_inlet_add_temperature(source):
     if not os.path.isfile(file):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
-        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300]
+        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300], {}
     )
     data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
@@ -193,15 +175,13 @@ def test_inlet_add_temperature(source):
         os.path.join("BOT", "1950-050-0040.bot.nc"),
         os.path.join("CTD", "1966-062-0129.ctd.nc"),
         os.path.join("BOT", "1994-003-0001.che.nc"),
+        os.path.join("BOT", "1994-022-0001.che.nc"),
         pytest.param(
             os.path.join("BOT", "1978-033-0013.bot.nc"), marks=pytest.mark.xfail
         ),
         pytest.param(
             os.path.join("ADCP", "nep1_20060512_20060525_0095m.adcp.L1.nc"),
             marks=pytest.mark.xfail,
-        ),
-        pytest.param(
-            os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail
         ),
     ],
 )
@@ -210,7 +190,7 @@ def test_inlet_add_salinity(source):
     if not os.path.isfile(file):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
-        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300]
+        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300], {}
     )
     data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
@@ -223,8 +203,8 @@ def test_inlet_add_salinity(source):
         os.path.join("BOT", "1930-031-0001.bot.nc"),
         os.path.join("CTD", "2021-020-0001.ctd.nc"),
         os.path.join("BOT", "1978-033-0013.bot.nc"),
-        # TODO: uncomment when umol/kg -> mL/L conversion is complete
-        # os.path.join("BOT", "1994-003-0001.che.nc"),
+        os.path.join("BOT", "1994-022-0001.che.nc"),
+        os.path.join("BOT", "1994-003-0001.che.nc"),
         pytest.param(
             os.path.join("CTD", "1966-062-0129.ctd.nc"), marks=pytest.mark.xfail
         ),
@@ -249,9 +229,6 @@ def test_inlet_add_salinity(source):
         pytest.param(
             os.path.join("BOT", "1950-050-0040.bot.nc"), marks=pytest.mark.xfail
         ),
-        pytest.param(
-            os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail
-        ),
     ],
 )
 def test_inlet_add_oxygen(source):
@@ -259,7 +236,7 @@ def test_inlet_add_oxygen(source):
     if not os.path.isfile(file):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
-        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300]
+        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300], {}
     )
     data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
@@ -405,16 +382,3 @@ def test_convert_oxygen_data_missing_data(
 )
 def test_reinsert_nan(data, placeholder):
     assert any(numpy.isnan(inlets.reinsert_nan(data, placeholder)))
-
-
-@pytest.mark.parametrize(
-    "source,prefix,index",
-    [
-        (["depth", "temperature"], "depth", 0),
-        (["depth", "temperature"], "temperature", 1),
-        (["depth", "temperature"], "oxygen", -1),
-        (["depth:suffix", "temperature"], "depth", 0),
-    ],
-)
-def test_find_first(source, prefix, index):
-    assert inlets.find_first(source, prefix) == index

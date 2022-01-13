@@ -12,7 +12,7 @@ import pandas
 import pickle
 import re
 from shapely.geometry import Point, Polygon
-from typing import Dict, List
+from typing import Any, Dict, List
 import xarray
 import ios_shell.shell as ios
 
@@ -61,11 +61,19 @@ def get_array(array):
         return array
 
 
-def find_first(source: List[str], *args):
-    for i, s in enumerate(source):
-        for prefix in args:
-            if s.startswith(prefix):
-                return i
+def find_column(source, name: str, *units: str) -> int:
+    names = [name, "'" + name, name.upper(), "'" + name.upper()]
+    potentials = [
+        line for line in source if any(line.name.startswith(name) for name in names)
+    ]
+    units_lower = [unit.lower() for unit in units]
+    with_units = [line for line in potentials if line.units.lower() in units_lower]
+    if len(with_units) > 0:
+        # pick first line with matching units
+        return with_units[0].no - 1
+    elif len(potentials) > 0:
+        # pick first line with matching name
+        return potentials[0].no - 1
     else:
         return -1
 
@@ -87,42 +95,71 @@ def to_float(source):
         raise ValueError(f"to_float called on {source}")
 
 
-def find_any(source, *attrs):
+def find_all(source, attrs):
+    out = []
     for attr in attrs:
         if hasattr(source, attr):
-            return getattr(source, attr)
+            out.append(getattr(source, attr))
+    return out
+
+
+def find_data(source, names, units):
+    potentials = find_all(source, names)
+    with_units = [
+        column
+        for column in potentials
+        if isinstance(column, float) or column.units.lower() in units
+    ]
+    if len(with_units) > 0:
+        return with_units[0]
+    elif len(potentials) > 0:
+        return potentials[0]
     else:
         return None
 
 
 def find_temperature_data(data):
-    return find_any(
-        data, "TEMPRTN1", "TEMPST01", "TEMPPR01", "TEMPPR03", "TEMPS901", "TEMPS601"
-    )
+    temperature_names = [
+        "TEMPRTN1",
+        "TEMPST01",
+        "TEMPPR01",
+        "TEMPPR03",
+        "TEMPS901",
+        "TEMPS601",
+    ]
+    temperature_units = ["C", "deg C", "degrees C"]
+    return find_data(data, temperature_names, temperature_units)
 
 
 def find_salinity_data(data):
-    return find_any(
-        data,
+    salinity_names = [
         "PSLTZZ01",
         "ODSDM021",
         "SSALST01",
         "PSALST01",
         "PSALBST1",
         "sea_water_practical_salinity",
-    )
+    ]
+    salinity_units = ["PSU", "PSS-78"]
+    return find_data(data, salinity_names, salinity_units)
 
 
 def find_oxygen_data(data):
-    return find_any(data, "DOXYZZ01", "DOXMZZ01")
+    oxygen_names = ["DOXYZZ01", "DOXMZZ01"]
+    oxygen_units = ["mL/L"]
+    return find_data(data, oxygen_names, oxygen_units)
 
 
 def find_depth_data(data):
-    return find_any(data, "depth", "instrument_depth", "PPSAADCP")
+    depth_names = ["depth", "instrument_depth", "PPSAADCP"]
+    depth_units = ["m", "metres"]
+    return find_data(data, depth_names, depth_units)
 
 
 def find_pressure_data(data):
-    return find_any(data, "PRESPR01", "sea_water_pressure")
+    pressure_names = ["PRESPR01", "sea_water_pressure"]
+    pressure_units = ["dbar", "decibar", "decibars"]
+    return find_data(data, pressure_names, pressure_units)
 
 
 def extend_arr(arr, length):
@@ -131,7 +168,7 @@ def extend_arr(arr, length):
 
 
 def get_pad_value(info, index):
-    if index < 0 or info is None:
+    if index < 0 or info is None or len(info) == 0:
         return None
     return to_float(info[index].pad)
 
@@ -366,6 +403,7 @@ def get_data(col, bucket, before=None):
 class InletData(object):
     time: datetime.datetime
     bucket: str
+    depth: float
     datum: float
     longitude: float
     latitude: float
@@ -382,13 +420,17 @@ def get_outliers(col, bucket="all", before=None):
     ]
     if before is not None:
         data = [datum for datum in data if datum.time.year < before.year]
-    return [
-        datum for datum in data if datum.datum < 3
-    ]
+    return [datum for datum in data if datum.datum < 3]
 
 
 class Inlet(object):
-    def __init__(self, name: str, polygon: Polygon, boundaries: List[int], limits: Dict[str, List[float]]):
+    def __init__(
+        self,
+        name: str,
+        polygon: Polygon,
+        boundaries: List[int],
+        limits: Dict[str, List[float]],
+    ):
         self.name = name
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
@@ -498,7 +540,9 @@ class Inlet(object):
         length = get_length(data)
         times = extend_arr(times, length)
         depths = extend_arr(depths, length)
-        if get_length(times) != get_length(data) or get_length(depths) != get_length(data):
+        if (get_length(times) != get_length(data)) or (
+            get_length(depths) != get_length(data)
+        ):
             logging.warning(
                 f"Data from {filename} contains times, depths, and data of different lengths"
             )
@@ -540,6 +584,7 @@ class Inlet(object):
                 InletData(
                     get_datetime(t),
                     category,
+                    d,
                     datum,
                     longitude,
                     latitude,
@@ -592,12 +637,14 @@ class Inlet(object):
                 depth = numpy.nan
 
         salinity, salinity_computed = convert_salinity(
-            salinity, None if salinity is None else salinity.units, filename
+            salinity,
+            None if salinity is None or isinstance(salinity, float) else salinity.units,
+            filename,
         )
 
         oxygen, oxygen_computed, oxygen_assumed_density = convert_oxygen(
             oxygen,
-            None if oxygen is None else oxygen.units,
+            None if oxygen is None or isinstance(oxygen, float) else oxygen.units,
             longitude,
             latitude,
             temperature,
@@ -660,12 +707,12 @@ class Inlet(object):
 
         longitude, latitude = data.location.longitude, data.location.latitude
 
-        date_idx = find_first(names, "Date", "DATE")
+        date_idx = find_column(channels, "Date")
         if date_idx < 0:
             # time not included in data, just use start date
             time = numpy.full(len(data.data), data.get_time())
         else:
-            time_idx = find_first(names, "Time", "TIME")
+            time_idx = find_column(channels, "Time")
             if time_idx < 0:
                 # only date included in data
                 time = [d[date_idx] for d in data.data]
@@ -677,7 +724,7 @@ class Inlet(object):
                     for d, t in zip(dates, times)
                 ]
 
-        depth_idx = find_first(names, "Depth", "DEPTH")
+        depth_idx = find_column(channels, "Depth", "m", "metre")
         depth_pad = get_pad_value(channel_details, depth_idx)
         if depth_pad is None or numpy.isnan(depth_pad):
             depth_pad = -99
@@ -685,7 +732,7 @@ class Inlet(object):
             data.data, depth_idx, depth_pad, has_quality(depth_idx, names)
         )
 
-        temperature_idx = find_first(names, "Temperature", "TEMPERATURE")
+        temperature_idx = find_column(channels, "Temperature", "C", "'deg C'")
         temperature_pad = get_pad_value(channel_details, temperature_idx)
         if temperature_pad is None or numpy.isnan(temperature_pad):
             temperature_pad = -99
@@ -696,9 +743,7 @@ class Inlet(object):
             has_quality(temperature_idx, names),
         )
 
-        salinity_idx = find_first(
-            names, "Salinity", "SALINITY", "'Salinity", "'SALINITY"
-        )
+        salinity_idx = find_column(channels, "Salinity", "PSU", "PSS-78")
         salinity_pad = get_pad_value(channel_details, salinity_idx)
         if salinity_pad is None or numpy.isnan(salinity_pad):
             salinity_pad = -99
@@ -706,7 +751,7 @@ class Inlet(object):
             data.data, salinity_idx, salinity_pad, has_quality(salinity_idx, names)
         )
 
-        oxygen_idx = find_first(names, "Oxygen", "OXYGEN")
+        oxygen_idx = find_column(channels, "Oxygen", "mL/L")
         oxygen_pad = get_pad_value(channel_details, oxygen_idx)
         if oxygen_pad is None or numpy.isnan(oxygen_pad):
             oxygen_pad = -99
@@ -714,7 +759,7 @@ class Inlet(object):
             data.data, oxygen_idx, oxygen_pad, has_quality(oxygen_idx, names)
         )
 
-        pressure_idx = find_first(names, "Pressure", "PRESSURE")
+        pressure_idx = find_column(channels, "Pressure", "dbar", "decibar")
         pressure_pad = get_pad_value(channel_details, pressure_idx)
         if pressure_pad is None or numpy.isnan(pressure_pad):
             pressure_pad = -99
@@ -805,7 +850,11 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
             for content in contents:
                 name = content["properties"]["name"]
                 boundaries = content["properties"]["boundaries"]
-                limits = content["properties"]["limits"] if "limits" in content["properties"] else {}
+                limits = (
+                    content["properties"]["limits"]
+                    if "limits" in content["properties"]
+                    else {}
+                )
                 polygon = Polygon(content["geometry"]["coordinates"][0])
                 inlet_list.append(Inlet(name, polygon, boundaries, limits))
 
