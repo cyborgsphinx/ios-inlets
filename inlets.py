@@ -284,32 +284,39 @@ def convert_percent_to_mL_L(
     oxygen_percent,
     temperature_C,
     salinity_SP,
+    filename="no filename given",
 ):
-    # function from en.wikipedia.org/wiki/Oxygenation_(environmental)
-    kelven_offset = 273.15
-    temperature_K = [t + kelven_offset for t in temperature_C]
-    A1 = -173.4292
-    A2 = 249.6339
-    A3 = 143.3483
-    A4 = -21.8492
-    B1 = -0.033096
-    B2 = 0.014259
-    B3 = -0.001700
-    return numpy.fromiter(
-        (
-            o
-            * math.exp(
-                A1
-                + (A2 * 100 / t)
-                + (A3 * math.log(t / 100))
-                + (A4 * t / 100)
-                + (s * (B1 + (B2 * t / 100) + (B3 * ((t / 100) ** 2))))
-            )
-            for o, t, s in zip(oxygen_percent, temperature_K, salinity_SP)
-        ),
-        float,
-        count=len(oxygen_percent),
-    )
+    if temperature_C is not None and salinity_SP is not None:
+        # function from en.wikipedia.org/wiki/Oxygenation_(environmental)
+        kelven_offset = 273.15
+        temperature_K = [t + kelven_offset for t in temperature_C]
+        A1 = -173.4292
+        A2 = 249.6339
+        A3 = 143.3483
+        A4 = -21.8492
+        B1 = -0.033096
+        B2 = 0.014259
+        B3 = -0.001700
+        return numpy.fromiter(
+            (
+                (o / 100)
+                * math.exp(
+                    A1
+                    + (A2 * 100 / t)
+                    + (A3 * math.log(t / 100))
+                    + (A4 * t / 100)
+                    + (s * (B1 + (B2 * t / 100) + (B3 * ((t / 100) ** 2))))
+                )
+                for o, t, s in zip(oxygen_percent, temperature_K, salinity_SP)
+            ),
+            float,
+            count=len(oxygen_percent),
+        )
+    else:
+        logging.warning(
+            f"Not enough data from {filename} to convert oxygen from % to mL/L. Ignoring file"
+        )
+        return None
 
 
 def convert_salinity(salinity, units, filename):
@@ -381,7 +388,9 @@ def convert_oxygen(
         data = oxygen * oxygen_mg_per_mL
         return data, True, False
     elif units in ["%"]:
-        data = convert_percent_to_mL_L(oxygen, temperature_C, salinity_SP)
+        data = convert_percent_to_mL_L(
+            oxygen, temperature_C, salinity_SP, filename=filename
+        )
         return data, False, False
     else:
         warn_wrong_units("mL/L", units, filename)

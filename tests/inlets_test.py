@@ -382,3 +382,25 @@ def test_convert_oxygen_data_missing_data(
 )
 def test_reinsert_nan(data, placeholder):
     assert any(numpy.isnan(inlets.reinsert_nan(data, placeholder)))
+
+
+@pytest.mark.parametrize(
+    "oxygen_percent,temperature_C,salinity_SP,expecteds",
+    [
+        (
+            [138.01, 140.83, 92.70, 71.14, 53.76, 52.05, 51.67, 50.75],
+            [10.1993, 9.9926, 8.6750, 8.6019, 8.0816, 8.0756, 8.0672, 8.0458],
+            [30.2153, 30.7551, 31.9281, 32.0355, 32.8430, 32.8635, 32.8692, 32.8796],
+            # above values given to https://ocena.ices.dk/tools/calculator.aspx to produce expected values
+            [8.949, 9.143, 6.152, 4.726, 3.595, 3.481, 3.456, 3.396],
+        )
+    ],
+)
+def test_convert_oxygen_percent_to_ml_per_l(
+    oxygen_percent, temperature_C, salinity_SP, expecteds
+):
+    actuals = inlets.convert_percent_to_mL_L(oxygen_percent, temperature_C, salinity_SP)
+    assert actuals is not None
+    assert len(actuals) == len(expecteds)
+    for actual, expected in zip(actuals, expecteds):
+        assert abs(actual - expected) < 0.001
