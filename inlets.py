@@ -182,7 +182,8 @@ def has_quality(value_index, names):
 
 
 def is_acceptable_quality(quality_value):
-    bad_qualities = ["3", "4"]
+    # 2 is "inconsistent with climatology" in the vast majority of observed cases
+    bad_qualities = ["2", "3", "4"]
     return not any(value in quality_value for value in bad_qualities)
 
 
@@ -562,7 +563,7 @@ class Inlet(object):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
-            if datum > 9.9e36:
+            if datum > 9.9e36 or d > 9.9e36:
                 if not once[0]:
                     logging.warning(
                         f"Data from {filename} is larger than 9.9e+36, it may have been calulated poorly"
