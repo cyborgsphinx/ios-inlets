@@ -77,13 +77,18 @@ def normalize(string: str):
     return string.strip().lower().replace(" ", "-")
 
 
-def do_chart(inlet: inlets.Inlet, kind: str, show_figure: bool, chart_fn):
+def do_chart(
+    inlet: inlets.Inlet, kind: str, show_figure: bool, use_limits: bool, chart_fn
+):
     print(f"Producing {kind} plot for {inlet.name}")
-    chart_fn(inlet, inlet.limits[kind] if kind in inlet.limits else [])
+    chart_fn(inlet, inlet.limits[kind] if use_limits and kind in inlet.limits else [])
     if show_figure:
         plt.show()
     else:
-        plt.savefig(os.path.join("figures", f"{normalize(inlet.name)}-{kind}.png"))
+        limits = "" if use_limits else "-full"
+        plt.savefig(
+            os.path.join("figures", f"{normalize(inlet.name)}-{kind}{limits}.png")
+        )
 
 
 def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn):
@@ -145,14 +150,27 @@ def main():
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     # plot args
     parser.add_argument("-s", "--show-figure", action="store_true")
+    parser.add_argument("-l", "--no-limits", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf)
     plt.figure(figsize=(8, 6))
     for inlet in inlet_list:
-        do_chart(inlet, "temperature", args.show_figure, chart_temperatures)
-        do_chart(inlet, "salinity", args.show_figure, chart_salinities)
-        do_chart(inlet, "oxygen", args.show_figure, chart_oxygen_data)
-        do_chart(inlet, "stations", args.show_figure, chart_stations)
+        do_chart(
+            inlet,
+            "temperature",
+            args.show_figure,
+            not args.no_limits,
+            chart_temperatures,
+        )
+        do_chart(
+            inlet, "salinity", args.show_figure, not args.no_limits, chart_salinities
+        )
+        do_chart(
+            inlet, "oxygen", args.show_figure, not args.no_limits, chart_oxygen_data
+        )
+        do_chart(
+            inlet, "stations", args.show_figure, not args.no_limits, chart_stations
+        )
     chart_temperature_anomalies(inlet_list, args.show_figure)
     chart_salinity_anomalies(inlet_list, args.show_figure)
     plt.close()

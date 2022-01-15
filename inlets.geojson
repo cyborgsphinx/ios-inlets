@@ -8,8 +8,7 @@
         "boundaries": [145, 170, 190],
         "limits": {
           "oxygen": [-0.1, 3.3],
-          "salinity": [30.8, 31.6],
-          "temperature": [7.9, 10.5]
+          "salinity": [30.8, 31.6]
         }
       },
       "geometry": {
@@ -28,7 +27,10 @@
       "type": "Feature",
       "properties": {
         "name": "Jervis Inlet",
-        "boundaries": [400, 500, 600]
+        "boundaries": [400, 500, 600],
+        "limits": {
+          "salinity": [30.5, 31.4]
+        }
       },
       "geometry": {
         "type": "Polygon",
@@ -47,7 +49,11 @@
       "type": "Feature",
       "properties": {
         "name": "Bute Inlet",
-        "boundaries": [400, 500, 600]
+        "boundaries": [400, 500, 600],
+        "limits": {
+          "oxygen": [0, 9],
+          "salinity": [30, 31.5]
+        }
       },
       "geometry": {
         "type": "Polygon",
@@ -66,7 +72,9 @@
       "type": "Feature",
       "properties": {
         "name": "Knight Inlet",
-        "boundaries": [300, 400, 500]
+        "boundaries": [300, 400, 500],
+        "limits": {
+        }
       },
       "geometry": {
         "type": "Polygon",
@@ -88,7 +96,10 @@
       "type": "Feature",
       "properties": {
         "name": "Indian Arm",
-        "boundaries": [100, 150, 200]
+        "boundaries": [100, 150, 200],
+        "limits": {
+          "salinity": [25.8, 28.7]
+        }
       },
       "geometry": {
         "type": "Polygon",
@@ -107,7 +118,9 @@
       "type": "Feature",
       "properties": {
         "name": "Howe Sound",
-        "boundaries": [150, 200, 250]
+        "boundaries": [150, 200, 250],
+        "limits": {
+        }
       },
       "geometry": {
         "type": "Polygon",
@@ -126,7 +139,9 @@
       "type": "Feature",
       "properties": {
         "name": "Muchalat Inlet",
-        "boundaries": [200, 250, 300]
+        "boundaries": [200, 250, 300],
+        "limits": {
+        }
       },
       "geometry": {
         "type": "Polygon",
