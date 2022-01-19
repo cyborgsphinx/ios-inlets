@@ -7,7 +7,7 @@ import ios_shell.shell as ios
 
 def main():
     ids = {}
-    shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "adcp"]
+    shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "adcp", "cur"]
     to_exclude = ["HISTORY", "old", "Archive", "Bottle", "BOTTLE", "ALTERNATE_VERSION"]
     print(
         "Files included in",

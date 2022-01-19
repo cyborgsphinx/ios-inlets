@@ -98,7 +98,7 @@ def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn):
         data = [
             datum
             for datum in data_fn(inlet)
-            if datum.bucket != "ignore" and not numpy.isnan(datum.datum)
+            if datum.bucket != inlets.IGNORE and not numpy.isnan(datum.datum)
         ]
         for datum in data:
             year = datum.time.year

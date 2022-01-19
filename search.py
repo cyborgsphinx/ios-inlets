@@ -56,13 +56,13 @@ def take_lesser_than(inlet, lesser_than):
 
 def take_used(inlet):
     inlet.temperature_data = [
-        datum for datum in inlet.temperature_data if datum.bucket != "ignore"
+        datum for datum in inlet.temperature_data if datum.bucket != inlets.IGNORE
     ]
     inlet.salinity_data = [
-        datum for datum in inlet.salinity_data if datum.bucket != "ignore"
+        datum for datum in inlet.salinity_data if datum.bucket != inlets.IGNORE
     ]
     inlet.oxygen_data = [
-        datum for datum in inlet.oxygen_data if datum.bucket != "ignore"
+        datum for datum in inlet.oxygen_data if datum.bucket != inlets.IGNORE
     ]
     return inlet
 

@@ -12,7 +12,7 @@ import pandas
 import pickle
 import re
 from shapely.geometry import Point, Polygon
-from typing import Any, Dict, List
+from typing import Dict, List
 import xarray
 import ios_shell.shell as ios
 
@@ -20,6 +20,8 @@ PICKLE_NAME = "inlets.pickle"
 SHALLOW = "shallow"
 MIDDLE = "middle"
 DEEP = "deep"
+IGNORE = "ignore"
+EXCEPTIONALLY_BIG = 9.9e36
 
 
 def get_length(arr):
@@ -41,7 +43,9 @@ def reinsert_nan(data, placeholder, length=None):
     if length is None:
         length = get_length(data)
     return numpy.fromiter(
-        (numpy.nan if x == placeholder else x for x in data), float, count=length
+        (numpy.nan if x == placeholder or x > EXCEPTIONALLY_BIG else x for x in data),
+        float,
+        count=length,
     )
 
 
@@ -563,7 +567,7 @@ class Inlet(object):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
-            if datum > 9.9e36 or d > 9.9e36:
+            if datum > EXCEPTIONALLY_BIG or d > EXCEPTIONALLY_BIG:
                 if not once[0]:
                     logging.warning(
                         f"Data from {filename} is larger than 9.9e+36, it may have been calulated poorly"
@@ -576,11 +580,6 @@ class Inlet(object):
                         f"Data from {filename} has value {placeholder}, which is likely a standin for NaN"
                     )
                     once[1] = True
-                continue
-            if datum < 0:
-                logging.warning(
-                    f"Data from {filename} contains negative values, which are likely either incorrect or placeholders: {datum} ~= {placeholder}"
-                )
                 datum = numpy.nan
             if self.is_shallow(d):
                 category = SHALLOW
@@ -589,7 +588,7 @@ class Inlet(object):
             elif self.is_deep(d):
                 category = DEEP
             else:
-                category = "ignore"
+                category = IGNORE
             out.append(
                 InletData(
                     get_datetime(t),
@@ -777,7 +776,13 @@ class Inlet(object):
             data.data, pressure_idx, pressure_pad, has_quality(pressure_idx, names)
         )
 
-        if depth_data is None:
+        if (
+            depth_data is None
+            and data.instrument is not None
+            and not numpy.isnan(data.instrument.depth)
+        ):
+            depth_data = numpy.full(1, float(data.instrument.raw["depth"]))
+        elif depth_data is None:
             if pressure_data is not None:
                 depth_data = gsw.z_from_p(pressure_data, latitude) * -1
             else:
@@ -881,7 +886,7 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
                                 logging.exception(f"Exception occurred in {file_name}")
                                 raise
 
-        shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt"]
+        shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "adcp", "cur"]
         # make a list of all elements in shell_exts followed by their str.upper() versions
         exts = [
             item
