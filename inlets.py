@@ -66,9 +66,9 @@ def get_array(array):
 
 
 def find_column(source, name: str, *units: str) -> int:
-    names = [name, "'" + name, name.upper(), "'" + name.upper()]
+    name_lower = name.lower()
     potentials = [
-        line for line in source if any(line.name.startswith(name) for name in names)
+        line for line in source if name_lower in line.name.lower()
     ]
     units_lower = [unit.lower() for unit in units]
     with_units = [line for line in potentials if line.units.lower() in units_lower]
@@ -390,7 +390,7 @@ def convert_oxygen(
         return data, True, assumed_density
     elif units.lower() in ["mg/l"]:
         oxygen_mg_per_mL = 1.429
-        data = oxygen * oxygen_mg_per_mL
+        data = oxygen / oxygen_mg_per_mL
         return data, True, False
     elif units in ["%"]:
         data = convert_percent_to_mL_L(
