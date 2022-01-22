@@ -1,3 +1,4 @@
+import csv
 from dataclasses import dataclass
 import datetime
 import fnmatch
@@ -854,6 +855,101 @@ class Inlet(object):
             )
 
 
+    def add_row_from_csv(self, csv_row, filename):
+        time = csv_row["Measurement time"]
+        depth = csv_row["Depth (m)"]
+        temperature = csv_row["Temperature (deg C)"]
+        oxygen_ml_l = csv_row["Dissolved O2 (mL/L)"]
+        salinity = csv_row["Salinity (PSU)"]
+        longitude = csv_row["Longitude"]
+        latitude = csv_row["Latitude"]
+
+        if len(time) > 0:
+            time = datetime.datetime.fromisoformat(time)
+        else:
+            logging.warning("No time")
+            time = datetime.datetime.min
+
+        if len(depth) > 0:
+            depth = float(depth)
+            if self.is_shallow(depth):
+                bucket = SHALLOW
+            elif self.is_middle(depth):
+                bucket = MIDDLE
+            elif self.is_deep(depth):
+                bucket = DEEP
+            else:
+                bucket = IGNORE
+        else:
+            logging.warning("No depth")
+            depth = math.nan
+            bucket = IGNORE
+
+        if len(temperature) > 0:
+            temperature = float(temperature)
+        else:
+            logging.warning("No temperature")
+            temperature = math.nan
+
+        if len(oxygen_ml_l) > 0:
+            oxygen_ml_l = float(oxygen_ml_l)
+        else:
+            logging.warning("No oxygen_ml_l")
+            oxygen_ml_l = math.nan
+
+        if len(salinity) > 0:
+            salinity = float(salinity)
+        else:
+            logging.warning("No salinity")
+            salinity = math.nan
+
+        if len(longitude) > 0:
+            longitude = float(longitude)
+        else:
+            logging.warning("No longitude")
+            longitude = math.nan
+
+        if len(latitude) > 0:
+            latitude = float(latitude)
+        else:
+            logging.warning("No latitude")
+            latitude = math.nan
+
+        self.temperature_data.append(
+            InletData(
+                time=time,
+                bucket=bucket,
+                depth=depth,
+                datum=temperature,
+                longitude=longitude,
+                latitude=latitude,
+                filename=filename,
+            )
+        )
+        self.salinity_data.append(
+            InletData(
+                time=time,
+                bucket=bucket,
+                depth=depth,
+                datum=salinity,
+                longitude=longitude,
+                latitude=latitude,
+                filename=filename,
+            )
+        )
+        self.oxygen_data.append(
+            InletData(
+                time=time,
+                bucket=bucket,
+                depth=depth,
+                datum=oxygen_ml_l,
+                longitude=longitude,
+                latitude=latitude,
+                filename=filename,
+            )
+        )
+
+
 def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
     inlet_list = []
     if from_saved:
@@ -917,6 +1013,20 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
                                     continue
             if "HISTORY" in dirs:
                 dirs.remove("HISTORY")
+
+        # hakai data
+        for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
+            with open(os.path.join(data_dir, file)) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    for inlet in inlet_list:
+                        coords = {
+                            "longitude": float(row["Longitude"]),
+                            "latitude": float(row["Latitude"]),
+                        }
+                        if inlet.contains(coords):
+                            inlet.add_row_from_csv(row, file)
+
         with open(PICKLE_NAME, mode="wb") as f:
             pickle.dump(inlet_list, f)
     return inlet_list
