@@ -409,7 +409,7 @@ def convert_oxygen(
         return None, False, False
 
 
-def get_data(col, bucket, before=None):
+def get_data(col, bucket, before=None, do_average=False):
     data = [
         [datum.time, datum.datum]
         for datum in col
@@ -417,14 +417,15 @@ def get_data(col, bucket, before=None):
     ]
     if before is not None:
         data = [[t, d] for t, d in data if t.year < before.year]
-    data_dict = {}
-    for t, d in data:
-        date = datetime.date(t.year, t.month, 1)
-        if date not in data_dict:
-            data_dict[date] = {"total": 0, "count": 0}
-        data_dict[date]["total"] += d
-        data_dict[date]["count"] += 1
-    data = [[key, elem["total"] / elem["count"]] for key, elem in data_dict.items()]
+    if do_average:
+        data_dict = {}
+        for t, d in data:
+            date = datetime.date(t.year, t.month, 1)
+            if date not in data_dict:
+                data_dict[date] = {"total": 0, "count": 0}
+            data_dict[date]["total"] += d
+            data_dict[date]["count"] += 1
+        data = [[key, elem["total"] / elem["count"]] for key, elem in data_dict.items()]
     return zip(*data) if len(data) > 0 else [[], []]
 
 
@@ -471,14 +472,14 @@ class Inlet(object):
         self.limits = limits
         self.used_files = set()
 
-    def get_temperature_data(self, bucket, before=None):
-        return get_data(self.temperature_data, bucket, before)
+    def get_temperature_data(self, bucket, before=None, do_average=False):
+        return get_data(self.temperature_data, bucket, before, do_average)
 
-    def get_salinity_data(self, bucket, before=None):
-        return get_data(self.salinity_data, bucket, before)
+    def get_salinity_data(self, bucket, before=None, do_average=False):
+        return get_data(self.salinity_data, bucket, before, do_average)
 
-    def get_oxygen_data(self, bucket, before=None):
-        return get_data(self.oxygen_data, bucket, before)
+    def get_oxygen_data(self, bucket, before=None, do_average=False):
+        return get_data(self.oxygen_data, bucket, before, do_average)
 
     def get_temperature_outliers(self, bucket="all", before=None):
         return get_outliers(self.temperature_data, bucket, before)
