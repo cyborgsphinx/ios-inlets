@@ -31,7 +31,8 @@ def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
         label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m",
     )
     deep_time, deep_data = data_fn(inlet, inlets.DEEP)
-    plt.plot(deep_time, deep_data, "xb", label=f">{inlet.deep_bounds[0]}m")
+    deep_label = f">{inlet.deep_bounds[0]}m" if inlet.deep_bounds[1] is None else f"{inlet.deep_bounds[0]}m-{inlet.deep_bounds[1]}m"
+    plt.plot(deep_time, deep_data, "xb", label=deep_label)
     plt.legend()
 
 
@@ -151,8 +152,9 @@ def main():
     # plot args
     parser.add_argument("-s", "--show-figure", action="store_true")
     parser.add_argument("-l", "--no-limits", action="store_true")
+    parser.add_argument("-i", "--inlet-name", type=str, nargs="?", default="")
     args = parser.parse_args()
-    inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf)
+    inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf, args.inlet_name)
     plt.figure(figsize=(8, 6))
     for inlet in inlet_list:
         do_chart(

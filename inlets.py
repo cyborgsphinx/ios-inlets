@@ -172,6 +172,12 @@ def extend_arr(arr, length):
     return numpy.full(length, arr.item()) if arr_length == 1 else arr
 
 
+def get_units(info, index):
+    if index < 0 or info is None or len(info) == 0:
+        return ""
+    return info[index].units
+
+
 def get_pad_value(info, index):
     if index < 0 or info is None or len(info) == 0:
         return None
@@ -405,12 +411,19 @@ def convert_oxygen(
 
 def get_data(col, bucket, before=None):
     data = [
-        [datum.time, datum.datum]
+        [datum.time, datum.datum, datum.filename]
         for datum in col
         if datum.bucket == bucket and not numpy.isnan(datum.datum)
     ]
     if before is not None:
-        data = [[t, d] for t, d in data if t.year < before.year]
+        data = [[t, d, f] for t, d, f in data if t.year < before.year]
+    data_dict = {}
+    for t, d, f in data:
+        if f not in data_dict:
+            data_dict[f] = {"total": 0, "count": 0, "date": t.date()}
+        data_dict[f]["total"] += d
+        data_dict[f]["count"] += 1
+    data = [[elem["date"], elem["total"] / elem["count"]] for _, elem in data_dict.items()]
     return zip(*data) if len(data) > 0 else [[], []]
 
 
@@ -449,7 +462,7 @@ class Inlet(object):
         self.name = name
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
-        self.deep_bounds = (boundaries[2], None)
+        self.deep_bounds = (boundaries[2], boundaries[3] if len(boundaries) > 3 else None)
         self.temperature_data = []
         self.salinity_data = []
         self.oxygen_data = []
@@ -950,7 +963,7 @@ class Inlet(object):
         )
 
 
-def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
+def get_inlets(data_dir, from_saved=False, skip_netcdf=False, use_inlet=""):
     inlet_list = []
     if from_saved:
         with open(PICKLE_NAME, mode="rb") as f:
@@ -960,6 +973,8 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False):
             contents = json.load(f)["features"]
             for content in contents:
                 name = content["properties"]["name"]
+                if use_inlet not in name:
+                    continue
                 boundaries = content["properties"]["boundaries"]
                 limits = (
                     content["properties"]["limits"]
