@@ -5,6 +5,7 @@ import fnmatch
 import ios_shell as ios
 import logging
 import math
+import numpy
 import os
 from shapely.geometry import Polygon
 import sqlite3
@@ -112,9 +113,9 @@ class StationData():
 
 def _extend_data(arr, length):
     if arr is None:
-        return [math.nan] * length
+        return numpy.full(length, numpy.nan)
     elif isinstance(arr, float):
-        return [arr] * length
+        return numpy.full(length, arr)
     else:
         return inlets.get_array(arr)
 
