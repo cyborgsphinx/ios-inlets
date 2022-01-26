@@ -152,7 +152,7 @@ def main():
     # plot args
     parser.add_argument("-s", "--show-figure", action="store_true")
     parser.add_argument("-l", "--no-limits", action="store_true")
-    parser.add_argument("-i", "--inlet-name", type=str, nargs="?", default="")
+    parser.add_argument("-i", "--inlet-name", type=str, nargs="+", default="")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf, args.inlet_name)
     plt.figure(figsize=(8, 6))
