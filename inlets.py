@@ -411,19 +411,20 @@ def convert_oxygen(
 
 def get_data(col, bucket, before=None):
     data = [
-        [datum.time, datum.datum, datum.filename]
+        [datum.time, datum.datum]
         for datum in col
         if datum.bucket == bucket and not numpy.isnan(datum.datum)
     ]
     if before is not None:
-        data = [[t, d, f] for t, d, f in data if t.year < before.year]
+        data = [[t, d] for t, d in data if t.year < before.year]
     data_dict = {}
-    for t, d, f in data:
-        if f not in data_dict:
-            data_dict[f] = {"total": 0, "count": 0, "date": t.date()}
-        data_dict[f]["total"] += d
-        data_dict[f]["count"] += 1
-    data = [[elem["date"], elem["total"] / elem["count"]] for _, elem in data_dict.items()]
+    for t, d in data:
+        date = datetime.date(t.year, t.month, 1)
+        if date not in data_dict:
+            data_dict[date] = {"total": 0, "count": 0}
+        data_dict[date]["total"] += d
+        data_dict[date]["count"] += 1
+    data = [[key, elem["total"] / elem["count"]] for key, elem in data_dict.items()]
     return zip(*data) if len(data) > 0 else [[], []]
 
 
