@@ -2,6 +2,7 @@ import csv
 from dataclasses import dataclass
 import datetime
 import fnmatch
+import gsw
 import ios_shell as ios
 import logging
 import math
@@ -15,24 +16,26 @@ import inlets
 
 DB_NAME = os.path.join("data", "station_data.db")
 CREATE = """create table data (
-filename text,
-latitude real,
-longitude real,
-kind text,
-project text,
-mission text,
-station test,
-event int,
-time text,
-depth real,
-temperature real,
-temperature_units text,
-salinity real,
-salinity_units text,
-oxygen real,
-oxygen_units text,
-pressure real,
-pressure_units text
+    filename text not null,
+    latitude real not null,
+    longitude real not null,
+    time text not null,
+    depth real,
+    temperature real,
+    temperature_units text,
+    salinity real,
+    salinity_units text,
+    oxygen real,
+    oxygen_units text,
+    pressure real,
+    pressure_units text,
+    primary key (
+        filename,
+        latitude,
+        longitude,
+        time,
+        depth
+    )
 )"""
 
 sqlite3.paramstyle = "named"
@@ -43,11 +46,6 @@ class StationData():
     filename: str
     latitude: float
     longitude: float
-    kind: str
-    project: str
-    mission: str
-    station: str
-    event: int
     time: datetime.datetime
     depth: float
     temperature_data: float = math.nan
@@ -60,13 +58,7 @@ class StationData():
     pressure_units: str = ""
 
     def id(self):
-        return (str(self.latitude)
-            + str(self.longitude)
-            + str(self.kind)
-            + self.project
-            + self.mission
-            + self.station
-            + str(self.event)
+        return (self.filename
             + self.time.strftime("%Y/%m/%dT%H:%M:%S")
             + str(self.depth))
 
@@ -90,14 +82,9 @@ class StationData():
 
     def as_dict(self):
         return {
-            "filename": self.filename,
+            "filename": self.filename.split(".")[0],
             "latitude": self.latitude,
             "longitude": self.longitude,
-            "kind": self.kind,
-            "project": self.project,
-            "mission": self.mission,
-            "station": self.station,
-            "event": self.event,
             "time": self.time,
             "depth": self.depth,
             "temperature_data": self.temperature_data,
@@ -116,103 +103,87 @@ def _extend_data(arr, length):
         return numpy.full(length, numpy.nan)
     elif isinstance(arr, float):
         return numpy.full(length, arr)
+    elif arr.size == 1:
+        return numpy.full(length, arr.item())
     else:
         return inlets.get_array(arr)
-
-
-def _data_kind(data):
-    filename = data.filename.item()
-    if "instrumentKind" in data:
-        return data.instrumentKind.lower()
-    elif filename.endswith(".bot") or filename.endswith(".che"):
-        return "bottle"
-    elif filename.endswith(".adcp") or filename.endswith(".L1"):
-        return "adcp"
-    else:
-        raise ValueError("Unknown kind: " + data.filename)
 
 
 def read_data(data_dir, inlet_list, skip_netcdf=False):
     if not skip_netcdf:
         for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
             for item in fnmatch.filter(files, "*.nc"):
-                try:
-                    file_name = os.path.join(root, item)
-                    data = xarray.open_dataset(file_name)
-                    for inlet in inlet_list:
-                        if inlet.contains(data):
-                            assert any(dim in data.dims for dim in ["time", "z"])
-                            if "time" in data.dims:
-                                dim = inlets.get_array(data.time)
-                            elif "z" in data.dims:
-                                dim = inlets.get_array(data.z)
-                            else:
-                                raise ValueError(f"{item} has unknown dimensions")
-                            length = dim.size
-                            depth_data = _extend_data(inlets.find_depth_data(data), length)
-                            kind = _data_kind(data)
+                print("NetCDF file:", item)
+                file_name = os.path.join(root, item)
+                data = xarray.open_dataset(file_name)
+                for inlet in inlet_list:
+                    if inlet.contains(data):
+                        assert any(dim in data.dims for dim in ["time", "z"])
+                        if "time" in data.dims:
+                            dim = inlets.get_array(data.time)
+                        elif "z" in data.dims:
+                            dim = inlets.get_array(data.z)
+                        else:
+                            raise ValueError(f"{item} has unknown dimensions")
+                        length = dim.size
+                        depth_data = _extend_data(inlets.find_depth_data(data), length)
 
-                            temperature_data = inlets.find_temperature_data(data)
-                            assert not isinstance(temperature_data, float)
-                            temperature_units = temperature_data.units if temperature_data is not None else ""
-                            temperature_data = _extend_data(temperature_data, length)
+                        temperature_data = inlets.find_temperature_data(data)
+                        assert not isinstance(temperature_data, float)
+                        temperature_units = temperature_data.units if temperature_data is not None else ""
+                        temperature_data = _extend_data(temperature_data, length)
 
-                            salinity_data = inlets.find_salinity_data(data)
-                            assert not isinstance(salinity_data, float)
-                            salinity_units = salinity_data.units if salinity_data is not None else ""
-                            salinity_data = _extend_data(salinity_data, length)
+                        salinity_data = inlets.find_salinity_data(data)
+                        assert not isinstance(salinity_data, float)
+                        salinity_units = salinity_data.units if salinity_data is not None else ""
+                        salinity_data = _extend_data(salinity_data, length)
 
-                            oxygen_data = inlets.find_oxygen_data(data)
-                            assert not isinstance(oxygen_data, float)
-                            oxygen_units = oxygen_data.units if oxygen_data is not None else ""
-                            oxygen_data = _extend_data(oxygen_data, length)
+                        oxygen_data = inlets.find_oxygen_data(data)
+                        assert not isinstance(oxygen_data, float)
+                        oxygen_units = oxygen_data.units if oxygen_data is not None else ""
+                        oxygen_data = _extend_data(oxygen_data, length)
 
-                            pressure_data = inlets.find_pressure_data(data)
-                            assert not isinstance(pressure_data, float)
-                            pressure_units = pressure_data.units if pressure_data is not None else ""
-                            pressure_data = _extend_data(pressure_data, length)
+                        pressure_data = inlets.find_pressure_data(data)
+                        assert not isinstance(pressure_data, float)
+                        pressure_units = pressure_data.units if pressure_data is not None else ""
+                        pressure_data = _extend_data(pressure_data, length)
 
-                            for i in range(length):
+                        for i in range(length):
+                            if depth_data is not None:
                                 depth_value = depth_data[i]
-                                if temperature_data is not None:
-                                    temperature_value = temperature_data[i]
-                                else:
-                                    temperature_value = math.nan
-                                if salinity_data is not None:
-                                    salinity_value = salinity_data[i]
-                                else:
-                                    salinity_value = math.nan
-                                if oxygen_data is not None:
-                                    oxygen_value = oxygen_data[i]
-                                else:
-                                    oxygen_value = math.nan
-                                if pressure_data is not None:
-                                    pressure_value = pressure_data[i]
-                                else:
-                                    pressure_value = math.nan
-                                yield StationData(
-                                    filename=item,
-                                    latitude=data.latitude.item(),
-                                    longitude=data.longitude.item(),
-                                    kind=kind,
-                                    project=data.project,
-                                    mission=data.deployment_cruise_number,
-                                    station=data.station,
-                                    event=data.deployment_number,
-                                    time=dim[i] if "time" in data.dims else data.time.item(),
-                                    depth=depth_value,
-                                    temperature_data=temperature_value,
-                                    temperature_units=temperature_units,
-                                    salinity_data=salinity_value,
-                                    salinity_units=salinity_units,
-                                    oxygen_data=oxygen_value,
-                                    oxygen_units=oxygen_units,
-                                    pressure_data=pressure_value,
-                                    pressure_units=pressure_units,
-                                )
-                except Exception as e:
-                    logging.warning(f"Exception in {item}: {e}")
-                    raise e
+                            else:
+                                depth_value = math.nan
+                            if temperature_data is not None:
+                                temperature_value = temperature_data[i]
+                            else:
+                                temperature_value = math.nan
+                            if salinity_data is not None:
+                                salinity_value = salinity_data[i]
+                            else:
+                                salinity_value = math.nan
+                            if oxygen_data is not None:
+                                oxygen_value = oxygen_data[i]
+                            else:
+                                oxygen_value = math.nan
+                            if pressure_data is not None:
+                                pressure_value = pressure_data[i]
+                            else:
+                                pressure_value = math.nan
+                            yield StationData(
+                                filename=item,
+                                latitude=data.latitude.item(),
+                                longitude=data.longitude.item(),
+                                time=dim[i] if "time" in data.dims else data.time.item(),
+                                depth=depth_value,
+                                temperature_data=temperature_value,
+                                temperature_units=temperature_units,
+                                salinity_data=salinity_value,
+                                salinity_units=salinity_units,
+                                oxygen_data=oxygen_value,
+                                oxygen_units=oxygen_units,
+                                pressure_data=pressure_value,
+                                pressure_units=pressure_units,
+                            )
 
     shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "adcp", "cur"]
     # make a list of all elements in shell_exts followed by their str.upper() versions
@@ -224,6 +195,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
     for root, dirs, files in os.walk(data_dir):
         for ext in exts:
             for item in fnmatch.filter(files, "*." + ext):
+                print("IOS Shell file:", item)
                 file_name = os.path.join(root, item)
                 try:
                     shell = ios.ShellFile.fromfile(file_name, process_data=False)
@@ -231,7 +203,8 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                     logging.exception(f"Failed to read {file_name}: {e}")
                     continue
                 for inlet in inlet_list:
-                    if inlet.contains(data):
+                    if inlet.contains(shell.get_location()):
+                        shell.process_data()
                         channels = shell.file.channels
                         channel_details = shell.file.channel_details
 
@@ -285,41 +258,36 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 depth = shell.instrument.depth
                             else:
                                 depth = math.nan
-                            assert isinstance(depth, float)
+                            assert isinstance(depth, float) or isinstance(depth, int)
 
                             if temperature_idx >= 0:
                                 temperature = row[temperature_idx]
                             else:
                                 temperature = math.nan
-                            assert isinstance(temperature, float)
+                            assert isinstance(temperature, float) or isinstance(temperature, int)
 
                             if salinity_idx >= 0:
                                 salinity = row[salinity_idx]
                             else:
                                 salinity = math.nan
-                            assert isinstance(salinity, float)
+                            assert isinstance(salinity, float) or isinstance(salinity, int)
 
                             if oxygen_idx >= 0:
                                 oxygen = row[oxygen_idx]
                             else:
                                 oxygen = math.nan
-                            assert isinstance(oxygen, float)
+                            assert isinstance(oxygen, float) or isinstance(oxygen, int)
 
                             if pressure_idx >= 0:
                                 pressure = row[pressure_idx]
                             else:
                                 pressure = math.nan
-                            assert isinstance(pressure, float)
+                            assert isinstance(pressure, float) or isinstance(pressure, int)
 
                             yield StationData(
                                 filename=item,
                                 latitude=shell.location.latitude,
                                 longitude=shell.location.longitude,
-                                kind=shell.file.data_description.lower(),
-                                project=shell.administration.project,
-                                mission=shell.administration.mission,
-                                station=shell.location.station,
-                                event=shell.location.event_number,
                                 time=date,
                                 depth=depth,
                                 temperature_data=temperature,
@@ -335,35 +303,31 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
             if "HISTORY" in dirs:
                 dirs.remove("HISTORY")
 
-        # hakai data
-        for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
-            with open(os.path.join(data_dir, file)) as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    coords = {
-                        "longitude": float(row["Longitude"]),
-                        "latitude": float(row["Latitude"]),
-                    }
-                    for inlet in inlet_list:
-                        if inlet.contains(data):
-                            yield StationData(
-                                filename=item,
-                                latitude=coords["latitude"],
-                                longitude=coords["longitude"],
-                                kind="n/a",
-                                project="Hakai",
-                                mission=row["Cruise"],
-                                station=row["Station"],
-                                event=-1,
-                                time=datetime.datetime.fromisoformat(row["Measurement time"]),
-                                depth=float(row["Depth (m)"]),
-                                temperature_data=float(row["Temperature (deg C)"]),
-                                temperature_units="C",
-                                salinity_data=float(row["Salinity (PSU)"]),
-                                salinity_units="PSU",
-                                oxygen_data=float(row["Dissolved O2 (mL/L)"]),
-                                oxygen_units="mL/L",
-                            )
+    # hakai data
+    for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
+        print("CSV file:", file)
+        with open(os.path.join(data_dir, file)) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                coords = {
+                    "longitude": float(row["Longitude"]),
+                    "latitude": float(row["Latitude"]),
+                }
+                for inlet in inlet_list:
+                    if inlet.contains(coords):
+                        yield StationData(
+                            filename=item,
+                            latitude=coords["latitude"],
+                            longitude=coords["longitude"],
+                            time=datetime.datetime.fromisoformat(row["Measurement time"]),
+                            depth=float(row["Depth (m)"]),
+                            temperature_data=float(row["Temperature (deg C)"]),
+                            temperature_units="C",
+                            salinity_data=float(row["Salinity (PSU)"]),
+                            salinity_units="PSU",
+                            oxygen_data=float(row["Dissolved O2 (mL/L)"]),
+                            oxygen_units="mL/L",
+                        )
 
 
 class StationDb:
@@ -388,64 +352,13 @@ class StationDb:
         self.cursor.execute(CREATE)
 
     def add_data(self, value: StationData):
-        self.cursor.execute("""
-            select temperature, salinity, oxygen, pressure
-            from data
-            where latitude=:latitude and longitude=:longitude and kind=:kind and project=:project and station=:station and event=:event and time=:time and depth=:depth
-            """, value.as_dict())
-        if (row := self.cursor.fetchone()) is not None:
-            # already in database
-            value_dict = value.as_dict()
-            if row[0] is None or math.isnan(row[0]):
-                value_dict["value"] = value.temperature_data
-                value_dict["units"] = value.temperature_units
-                self.cursor.execute("""
-                    update data
-                    set temperature = :value, temperature_units = :units
-                    where latitude=:latitude and longitude=:longitude and kind=:kind and project=:project and station=:station and event=:event and time=:time and depth=:depth
-                """, value_dict)
-            if row[1] is None or math.isnan(row[1]):
-                value_dict["name"] = "salinity"
-                value_dict["name_units"] = "salinity_units"
-                value_dict["value"] = value.salinity_data
-                value_dict["units"] = value.salinity_units
-                self.cursor.execute("""
-                    update data
-                    set salinity = :value, salinity_units = :units
-                    where latitude=:latitude and longitude=:longitude and kind=:kind and project=:project and station=:station and event=:event and time=:time and depth=:depth
-                """, value_dict)
-            if row[2] is None or math.isnan(row[2]):
-                value_dict["name"] = "oxygen"
-                value_dict["name_units"] = "oxygen_units"
-                value_dict["value"] = value.oxygen_data
-                value_dict["units"] = value.oxygen_units
-                self.cursor.execute("""
-                    update data
-                    set oxygen = :value, oxygen_units = :units
-                    where latitude=:latitude and longitude=:longitude and kind=:kind and project=:project and station=:station and event=:event and time=:time and depth=:depth
-                """, value_dict)
-            if row[3] is None or math.isnan(row[3]):
-                value_dict["name"] = "pressure"
-                value_dict["name_units"] = "pressure_units"
-                value_dict["value"] = value.temperature_data
-                value_dict["units"] = value.temperature_units
-                self.cursor.execute("""
-                    update data
-                    set pressure = :value, pressure_units = :units
-                    where latitude=:latitude and longitude=:longitude and kind=:kind and project=:project and station=:station and event=:event and time=:time and depth=:depth
-                """, value_dict)
-        else:
+        try:
             self.cursor.execute("""
             insert into data
             values (
                 :filename,
                 :latitude,
                 :longitude,
-                :kind,
-                :project,
-                :mission,
-                :station,
-                :event,
                 :time,
                 :depth,
                 :temperature_data,
@@ -457,6 +370,48 @@ class StationDb:
                 :pressure_data,
                 :pressure_units
             )""", value.as_dict())
+        except sqlite3.DatabaseError as e:
+            self.cursor.execute("""
+                select temperature, salinity, oxygen, pressure
+                from data
+                where filename=:filename and time=:time and depth=:depth
+                """, value.as_dict())
+            if (row := self.cursor.fetchone()) is not None:
+                value_dict = value.as_dict()
+                if row[0] is None or math.isnan(row[0]):
+                    value_dict["value"] = value.temperature_data
+                    value_dict["units"] = value.temperature_units
+                    self.cursor.execute("""
+                        update data
+                        set temperature = :value, temperature_units = :units
+                        where filename=:filename and time=:time and depth=:depth
+                    """, value_dict)
+                if row[1] is None or math.isnan(row[1]):
+                    value_dict["value"] = value.salinity_data
+                    value_dict["units"] = value.salinity_units
+                    self.cursor.execute("""
+                        update data
+                        set salinity = :value, salinity_units = :units
+                        where filename=:filename and time=:time and depth=:depth
+                    """, value_dict)
+                if row[2] is None or math.isnan(row[2]):
+                    value_dict["value"] = value.oxygen_data
+                    value_dict["units"] = value.oxygen_units
+                    self.cursor.execute("""
+                        update data
+                        set oxygen = :value, oxygen_units = :units
+                        where filename=:filename and time=:time and depth=:depth
+                    """, value_dict)
+                if row[3] is None or math.isnan(row[3]):
+                    value_dict["value"] = value.pressure_data
+                    value_dict["units"] = value.pressure_units
+                    self.cursor.execute("""
+                        update data
+                        set pressure = :value, pressure_units = :units
+                        where filename=:filename and time=:time and depth=:depth
+                    """, value_dict)
+            else:
+                print(f"Unknown error: {e}")
 
     def data(self):
         # iterator/generator over data in table
