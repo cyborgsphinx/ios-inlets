@@ -965,7 +965,7 @@ class Inlet(object):
         )
 
 
-def get_inlets(data_dir, from_saved=False, skip_netcdf=False, inlet_names=[]):
+def get_inlets(data_dir, from_saved=False, skip_netcdf=False, inlet_names=[], drop_names=[], keep_names=[]):
     inlet_list = []
     if from_saved:
         with open(PICKLE_NAME, mode="rb") as f:
@@ -975,7 +975,11 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False, inlet_names=[]):
             contents = json.load(f)["features"]
             for content in contents:
                 name = content["properties"]["name"]
-                if not any(name_part in name for name_part in inlet_names):
+                if len(keep_names) > 0 and not all(name_part in name for name_part in keep_names):
+                    continue
+                if len(inlet_names) > 0 and not any(name_part in name for name_part in inlet_names):
+                    continue
+                if len(drop_names) > 0 and any(name_part in name for name_part in drop_names):
                     continue
                 boundaries = content["properties"]["boundaries"]
                 limits = (
