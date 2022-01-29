@@ -44,17 +44,19 @@ def main():
                     continue
                 for inlet in inlet_list:
                     if inlet.contains(shell.get_location()):
-                        stations[inlet.name].append({
-                            "type": "Feature",
-                            "properties": { "station": shell.location.station },
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [
-                                    shell.location.longitude,
-                                    shell.location.latitude,
-                                ]
+                        stations[inlet.name].append(
+                            {
+                                "type": "Feature",
+                                "properties": {"station": shell.location.station},
+                                "geometry": {
+                                    "type": "Point",
+                                    "coordinates": [
+                                        shell.location.longitude,
+                                        shell.location.latitude,
+                                    ],
+                                },
                             }
-                        })
+                        )
         if "HISTORY" in dirs:
             dirs.remove("HISTORY")
 
@@ -62,6 +64,7 @@ def main():
         print("Stations along", name)
         geo = {"type": "FeatureCollection", "features": data}
         print(json.dumps(geo))
+
 
 if __name__ == "__main__":
     main()

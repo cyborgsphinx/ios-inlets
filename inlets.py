@@ -68,9 +68,7 @@ def get_array(array):
 
 def find_column(source, name: str, *units: str) -> int:
     name_lower = name.lower()
-    potentials = [
-        line for line in source if name_lower in line.name.lower()
-    ]
+    potentials = [line for line in source if name_lower in line.name.lower()]
     units_lower = [unit.lower() for unit in units]
     with_units = [line for line in potentials if line.units.lower() in units_lower]
     if len(with_units) > 0:
@@ -464,7 +462,10 @@ class Inlet(object):
         self.name = name
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
-        self.deep_bounds = (boundaries[2], boundaries[3] if len(boundaries) > 3 else None)
+        self.deep_bounds = (
+            boundaries[2],
+            boundaries[3] if len(boundaries) > 3 else None,
+        )
         self.temperature_data = []
         self.salinity_data = []
         self.oxygen_data = []
@@ -869,7 +870,6 @@ class Inlet(object):
                 )
             )
 
-
     def add_row_from_csv(self, csv_row, filename):
         time = csv_row["Measurement time"]
         depth = csv_row["Depth (m)"]
@@ -965,7 +965,14 @@ class Inlet(object):
         )
 
 
-def get_inlets(data_dir, from_saved=False, skip_netcdf=False, inlet_names=[], drop_names=[], keep_names=[]):
+def get_inlets(
+    data_dir,
+    from_saved=False,
+    skip_netcdf=False,
+    inlet_names=[],
+    drop_names=[],
+    keep_names=[],
+):
     inlet_list = []
     if from_saved:
         with open(PICKLE_NAME, mode="rb") as f:
@@ -975,11 +982,17 @@ def get_inlets(data_dir, from_saved=False, skip_netcdf=False, inlet_names=[], dr
             contents = json.load(f)["features"]
             for content in contents:
                 name = content["properties"]["name"]
-                if len(keep_names) > 0 and not all(name_part in name for name_part in keep_names):
+                if len(keep_names) > 0 and not all(
+                    name_part in name for name_part in keep_names
+                ):
                     continue
-                if len(inlet_names) > 0 and not any(name_part in name for name_part in inlet_names):
+                if len(inlet_names) > 0 and not any(
+                    name_part in name for name_part in inlet_names
+                ):
                     continue
-                if len(drop_names) > 0 and any(name_part in name for name_part in drop_names):
+                if len(drop_names) > 0 and any(
+                    name_part in name for name_part in drop_names
+                ):
                     continue
                 boundaries = content["properties"]["boundaries"]
                 limits = (

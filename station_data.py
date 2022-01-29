@@ -42,7 +42,7 @@ sqlite3.paramstyle = "named"
 
 
 @dataclass
-class StationData():
+class StationData:
     filename: str
     latitude: float
     longitude: float
@@ -58,14 +58,14 @@ class StationData():
     pressure_units: str = ""
 
     def id(self):
-        return (self.filename
-            + self.time.strftime("%Y/%m/%dT%H:%M:%S")
-            + str(self.depth))
+        return self.filename + self.time.strftime("%Y/%m/%dT%H:%M:%S") + str(self.depth)
 
     def join(self, other):
         if self.id() != other.id():
             return
-        logging.warning(f"{self.filename} has been determined to be from the same data measurement as {other.filename}")
+        logging.warning(
+            f"{self.filename} has been determined to be from the same data measurement as {other.filename}"
+        )
 
         if math.isnan(self.temperature_data):
             self.temperature_data = other.temperature_data
@@ -130,22 +130,32 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
 
                         temperature_data = inlets.find_temperature_data(data)
                         assert not isinstance(temperature_data, float)
-                        temperature_units = temperature_data.units if temperature_data is not None else ""
+                        temperature_units = (
+                            temperature_data.units
+                            if temperature_data is not None
+                            else ""
+                        )
                         temperature_data = _extend_data(temperature_data, length)
 
                         salinity_data = inlets.find_salinity_data(data)
                         assert not isinstance(salinity_data, float)
-                        salinity_units = salinity_data.units if salinity_data is not None else ""
+                        salinity_units = (
+                            salinity_data.units if salinity_data is not None else ""
+                        )
                         salinity_data = _extend_data(salinity_data, length)
 
                         oxygen_data = inlets.find_oxygen_data(data)
                         assert not isinstance(oxygen_data, float)
-                        oxygen_units = oxygen_data.units if oxygen_data is not None else ""
+                        oxygen_units = (
+                            oxygen_data.units if oxygen_data is not None else ""
+                        )
                         oxygen_data = _extend_data(oxygen_data, length)
 
                         pressure_data = inlets.find_pressure_data(data)
                         assert not isinstance(pressure_data, float)
-                        pressure_units = pressure_data.units if pressure_data is not None else ""
+                        pressure_units = (
+                            pressure_data.units if pressure_data is not None else ""
+                        )
                         pressure_data = _extend_data(pressure_data, length)
 
                         for i in range(length):
@@ -173,7 +183,9 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 filename=item,
                                 latitude=data.latitude.item(),
                                 longitude=data.longitude.item(),
-                                time=dim[i] if "time" in data.dims else data.time.item(),
+                                time=dim[i]
+                                if "time" in data.dims
+                                else data.time.item(),
                                 depth=depth_value,
                                 temperature_data=temperature_value,
                                 temperature_units=temperature_units,
@@ -216,14 +228,22 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         if depth_pad is None or math.isnan(depth_pad):
                             depth_pad = -99
 
-                        temperature_idx = inlets.find_column(channels, "Temperature", "C", "'deg C'")
-                        temperature_pad = inlets.get_pad_value(channel_details, temperature_idx)
+                        temperature_idx = inlets.find_column(
+                            channels, "Temperature", "C", "'deg C'"
+                        )
+                        temperature_pad = inlets.get_pad_value(
+                            channel_details, temperature_idx
+                        )
                         if temperature_pad is None or math.isnan(temperature_pad):
                             temperature_pad = -99
                         temperature_units = inlets.get_units(channels, temperature_idx)
 
-                        salinity_idx = inlets.find_column(channels, "Salinity", "PSU", "PSS-78")
-                        salinity_pad = inlets.get_pad_value(channel_details, salinity_idx)
+                        salinity_idx = inlets.find_column(
+                            channels, "Salinity", "PSU", "PSS-78"
+                        )
+                        salinity_pad = inlets.get_pad_value(
+                            channel_details, salinity_idx
+                        )
                         if salinity_pad is None or math.isnan(salinity_pad):
                             salinity_pad = -99
                         salinity_units = inlets.get_units(channels, salinity_idx)
@@ -234,8 +254,12 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             oxygen_pad = -99
                         oxygen_units = inlets.get_units(channels, oxygen_idx)
 
-                        pressure_idx = inlets.find_column(channels, "Pressure", "dbar", "decibar")
-                        pressure_pad = inlets.get_pad_value(channel_details, pressure_idx)
+                        pressure_idx = inlets.find_column(
+                            channels, "Pressure", "dbar", "decibar"
+                        )
+                        pressure_pad = inlets.get_pad_value(
+                            channel_details, pressure_idx
+                        )
                         if pressure_pad is None or math.isnan(pressure_pad):
                             pressure_pad = -99
                         pressure_units = inlets.get_units(channels, pressure_idx)
@@ -249,12 +273,16 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 time = row[time_idx]
                                 if isinstance(date, datetime.date):
                                     assert isinstance(time, datetime.time)
-                                    date = datetime.datetime.combine(date, time, tzinfo=shell.get_time().tzinfo)
+                                    date = datetime.datetime.combine(
+                                        date, time, tzinfo=shell.get_time().tzinfo
+                                    )
                             assert isinstance(date, datetime.datetime)
 
                             if depth_idx >= 0:
                                 depth = row[depth_idx]
-                            elif shell.instrument is not None and not math.isnan(shell.instrument.depth):
+                            elif shell.instrument is not None and not math.isnan(
+                                shell.instrument.depth
+                            ):
                                 depth = shell.instrument.depth
                             else:
                                 depth = math.nan
@@ -264,13 +292,17 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 temperature = row[temperature_idx]
                             else:
                                 temperature = math.nan
-                            assert isinstance(temperature, float) or isinstance(temperature, int)
+                            assert isinstance(temperature, float) or isinstance(
+                                temperature, int
+                            )
 
                             if salinity_idx >= 0:
                                 salinity = row[salinity_idx]
                             else:
                                 salinity = math.nan
-                            assert isinstance(salinity, float) or isinstance(salinity, int)
+                            assert isinstance(salinity, float) or isinstance(
+                                salinity, int
+                            )
 
                             if oxygen_idx >= 0:
                                 oxygen = row[oxygen_idx]
@@ -282,7 +314,9 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 pressure = row[pressure_idx]
                             else:
                                 pressure = math.nan
-                            assert isinstance(pressure, float) or isinstance(pressure, int)
+                            assert isinstance(pressure, float) or isinstance(
+                                pressure, int
+                            )
 
                             yield StationData(
                                 filename=item,
@@ -319,7 +353,9 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             filename=item,
                             latitude=coords["latitude"],
                             longitude=coords["longitude"],
-                            time=datetime.datetime.fromisoformat(row["Measurement time"]),
+                            time=datetime.datetime.fromisoformat(
+                                row["Measurement time"]
+                            ),
                             depth=float(row["Depth (m)"]),
                             temperature_data=float(row["Temperature (deg C)"]),
                             temperature_units="C",
@@ -335,11 +371,13 @@ class StationDb:
         self.name = name
         self.connection = sqlite3.connect(name)
         self.cursor = self.connection.cursor()
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             select count(name)
             from sqlite_master
             where type='table' and name='data'
-        """)
+        """
+        )
         if self.cursor.fetchone()[0] == 0:
             self.cursor.execute(CREATE)
 
@@ -353,7 +391,8 @@ class StationDb:
 
     def add_data(self, value: StationData):
         try:
-            self.cursor.execute("""
+            self.cursor.execute(
+                """
             insert into data
             values (
                 :filename,
@@ -369,47 +408,64 @@ class StationDb:
                 :oxygen_units,
                 :pressure_data,
                 :pressure_units
-            )""", value.as_dict())
+            )""",
+                value.as_dict(),
+            )
         except sqlite3.DatabaseError as e:
-            self.cursor.execute("""
+            self.cursor.execute(
+                """
                 select temperature, salinity, oxygen, pressure
                 from data
                 where filename=:filename and time=:time and depth=:depth
-                """, value.as_dict())
+                """,
+                value.as_dict(),
+            )
             if (row := self.cursor.fetchone()) is not None:
                 value_dict = value.as_dict()
                 if row[0] is None or math.isnan(row[0]):
                     value_dict["value"] = value.temperature_data
                     value_dict["units"] = value.temperature_units
-                    self.cursor.execute("""
+                    self.cursor.execute(
+                        """
                         update data
                         set temperature = :value, temperature_units = :units
                         where filename=:filename and time=:time and depth=:depth
-                    """, value_dict)
+                    """,
+                        value_dict,
+                    )
                 if row[1] is None or math.isnan(row[1]):
                     value_dict["value"] = value.salinity_data
                     value_dict["units"] = value.salinity_units
-                    self.cursor.execute("""
+                    self.cursor.execute(
+                        """
                         update data
                         set salinity = :value, salinity_units = :units
                         where filename=:filename and time=:time and depth=:depth
-                    """, value_dict)
+                    """,
+                        value_dict,
+                    )
                 if row[2] is None or math.isnan(row[2]):
                     value_dict["value"] = value.oxygen_data
                     value_dict["units"] = value.oxygen_units
-                    self.cursor.execute("""
+                    self.cursor.execute(
+                        """
                         update data
                         set oxygen = :value, oxygen_units = :units
                         where filename=:filename and time=:time and depth=:depth
-                    """, value_dict)
+                    """,
+                        value_dict,
+                    )
                 if row[3] is None or math.isnan(row[3]):
                     value_dict["value"] = value.pressure_data
                     value_dict["units"] = value.pressure_units
-                    self.cursor.execute("""
+                    self.cursor.execute(
+                        """
                         update data
                         set pressure = :value, pressure_units = :units
                         where filename=:filename and time=:time and depth=:depth
-                    """, value_dict)
+                    """,
+                        value_dict,
+                    )
             else:
                 print(f"Unknown error: {e}")
 
