@@ -246,6 +246,7 @@ def main():
     parser.add_argument("-I", "--remove-inlet-name", type=str, nargs="+", default=[])
     parser.add_argument("-b", "--plot-buckets", action="store_true")
     parser.add_argument("-a", "--use-averages", action="store_true")
+    parser.add_argument("-p", "--plot-anomalies", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(
         args.data,
@@ -330,6 +331,7 @@ def main():
                 chart_stations,
                 args.use_averages,
             )
+    if args.plot_anomalies:
         chart_temperature_anomalies(inlet_list, args.show_figure)
         chart_salinity_anomalies(inlet_list, args.show_figure)
     plt.close()
