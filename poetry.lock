@@ -256,7 +256,7 @@ python-versions = "*"
 
 [[package]]
 name = "ios-shell"
-version = "0.1.56"
+version = "0.1.57"
 description = "Parses files formatted by the Institute of Ocean Sciences' IOSShell tool"
 category = "main"
 optional = false
@@ -270,7 +270,7 @@ fortranformat = "^1.0.1"
 type = "git"
 url = "ssh://git@github.com/cyborgsphinx/ios-shell.git"
 reference = "main"
-resolved_reference = "cc44460200c793f35a462e4e93bdc9268c4ebdf6"
+resolved_reference = "0fd8e3bcefd8802ab6c7a38bbecab1d63a820822"
 
 [[package]]
 name = "ipykernel"
