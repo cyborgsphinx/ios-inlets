@@ -40,7 +40,7 @@ def main():
                 try:
                     shell = ios.ShellFile.fromfile(file_name, process_data=False)
                 except Exception as e:
-                    logging.exception(f"Failed to read {file_name}: {e}")
+                    logging.exception(e)
                     continue
                 for inlet in inlet_list:
                     if inlet.contains(shell.get_location()):

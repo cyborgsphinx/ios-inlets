@@ -27,7 +27,7 @@ def main():
                 try:
                     shell = ios.ShellFile.fromfile(file_name, process_data=False)
                 except Exception as e:
-                    logging.exception(f"Failed to read {file_name}: {e}")
+                    logging.exception(e)
                     continue
                 id = (
                     shell.file.start_time.strftime("%Y/%m/%dT%H:%M:%S")

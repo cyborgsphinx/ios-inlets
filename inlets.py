@@ -1030,7 +1030,7 @@ def get_inlets(
                     try:
                         shell = ios.ShellFile.fromfile(file_name, process_data=False)
                     except Exception as e:
-                        logging.exception(f"Failed to read {file_name}: {e}")
+                        logging.exception(e)
                         continue
                     for inlet in inlet_list:
                         if inlet.contains(shell.get_location()):
@@ -1041,9 +1041,7 @@ def get_inlets(
                                     shell.process_data()
                                     inlet.add_data_from_shell(shell)
                                 except Exception as e:
-                                    logging.exception(
-                                        f"Exception occurred in {file_name}: {e}"
-                                    )
+                                    logging.exception(e)
                                     continue
             if "HISTORY" in dirs:
                 dirs.remove("HISTORY")

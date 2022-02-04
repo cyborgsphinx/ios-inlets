@@ -212,11 +212,15 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                 try:
                     shell = ios.ShellFile.fromfile(file_name, process_data=False)
                 except Exception as e:
-                    logging.exception(f"Failed to read {file_name}: {e}")
+                    logging.exception(e)
                     continue
                 for inlet in inlet_list:
                     if inlet.contains(shell.get_location()):
-                        shell.process_data()
+                        try:
+                            shell.process_data()
+                        except Exception as e:
+                            logging.exception(e)
+                            continue
                         channels = shell.file.channels
                         channel_details = shell.file.channel_details
 
