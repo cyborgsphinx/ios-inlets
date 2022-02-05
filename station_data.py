@@ -22,12 +22,16 @@ CREATE = """create table data (
     time text not null,
     depth real,
     temperature real,
+    temperature_quality integer,
     temperature_units text,
     salinity real,
+    salinity_quality integer,
     salinity_units text,
     oxygen real,
+    oxygen_quality integer,
     oxygen_units text,
     pressure real,
+    pressure_quality integer,
     pressure_units text,
     primary key (
         filename,
@@ -49,12 +53,16 @@ class StationData:
     time: datetime.datetime
     depth: float
     temperature_data: float = math.nan
+    temperature_quality: int = -1
     temperature_units: str = ""
     salinity_data: float = math.nan
+    salinity_quality: int = -1
     salinity_units: str = ""
     oxygen_data: float = math.nan
+    oxygen_quality: int = -1
     oxygen_units: str = ""
     pressure_data: float = math.nan
+    pressure_quality: int = -1
     pressure_units: str = ""
 
     def id(self):
@@ -69,15 +77,19 @@ class StationData:
 
         if math.isnan(self.temperature_data):
             self.temperature_data = other.temperature_data
+            self.temperature_quality = other.temperature_quality
             self.temperature_units = other.temperature_units
         if math.isnan(self.salinity_data):
             self.salinity_data = other.salinity_data
+            self.salinity_quality = other.salinity_quality
             self.salinity_units = other.salinity_units
         if math.isnan(self.oxygen_data):
             self.oxygen_data = other.oxygen_data
+            self.oxygen_quality = other.oxygen_quality
             self.oxygen_units = other.oxygen_units
         if math.isnan(self.pressure_data):
             self.pressure_data = other.pressure_data
+            self.pressure_quality = other.pressure_quality
             self.pressure_units = other.pressure_units
 
     def as_dict(self):
@@ -88,12 +100,16 @@ class StationData:
             "time": self.time,
             "depth": self.depth,
             "temperature_data": self.temperature_data,
+            "temperature_quality": self.temperature_quality,
             "temperature_units": self.temperature_units,
             "salinity_data": self.salinity_data,
+            "salinity_quality": self.salinity_quality,
             "salinity_units": self.salinity_units,
             "oxygen_data": self.oxygen_data,
+            "oxygen_quality": self.oxygen_quality,
             "oxygen_units": self.oxygen_units,
             "pressure_data": self.pressure_data,
+            "pressure_quality": self.pressure_quality,
             "pressure_units": self.pressure_units,
         }
 
@@ -223,8 +239,9 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             continue
                         channels = shell.file.channels
                         channel_details = shell.file.channel_details
+                        names = [channel.name for channel in channels]
 
-                        date_idx = inlets.find_column(shell.file.channels, "Date")
+                        date_idx = inlets.find_column(channels, "Date")
                         time_idx = inlets.find_column(channels, "Time")
 
                         depth_idx = inlets.find_column(channels, "Depth", "m", "metre")
@@ -235,6 +252,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         temperature_idx = inlets.find_column(
                             channels, "Temperature", "C", "'deg C'"
                         )
+                        temperature_quality_idx = temperature_idx + 1 if inlets.has_quality(temperature_idx, names) else -1
                         temperature_pad = inlets.get_pad_value(
                             channel_details, temperature_idx
                         )
@@ -245,6 +263,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         salinity_idx = inlets.find_column(
                             channels, "Salinity", "PSU", "PSS-78"
                         )
+                        salinity_quality_idx = salinity_idx + 1 if inlets.has_quality(salinity_idx, names) else -1
                         salinity_pad = inlets.get_pad_value(
                             channel_details, salinity_idx
                         )
@@ -253,6 +272,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         salinity_units = inlets.get_units(channels, salinity_idx)
 
                         oxygen_idx = inlets.find_column(channels, "Oxygen", "mL/L")
+                        oxygen_quality_idx = oxygen_idx + 1 if inlets.has_quality(oxygen_idx, names) else -1
                         oxygen_pad = inlets.get_pad_value(channel_details, oxygen_idx)
                         if oxygen_pad is None or math.isnan(oxygen_pad):
                             oxygen_pad = -99
@@ -261,6 +281,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         pressure_idx = inlets.find_column(
                             channels, "Pressure", "dbar", "decibar"
                         )
+                        pressure_quality_idx = pressure_idx + 1 if inlets.has_quality(pressure_idx, names) else -1
                         pressure_pad = inlets.get_pad_value(
                             channel_details, pressure_idx
                         )
@@ -275,7 +296,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 date = shell.file.start_time
                             if time_idx >= 0:
                                 time = row[time_idx]
-                                if isinstance(date, datetime.date):
+                                if isinstance(date, datetime.date) and not isinstance(date, datetime.datetime):
                                     assert isinstance(time, datetime.time)
                                     date = datetime.datetime.combine(
                                         date, time, tzinfo=shell.get_time().tzinfo
@@ -299,6 +320,10 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             assert isinstance(temperature, float) or isinstance(
                                 temperature, int
                             )
+                            if temperature_quality_idx >= 0:
+                                temperature_quality = int(row[temperature_quality_idx])
+                            else:
+                                temperature_quality = -1
 
                             if salinity_idx >= 0:
                                 salinity = row[salinity_idx]
@@ -307,12 +332,20 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             assert isinstance(salinity, float) or isinstance(
                                 salinity, int
                             )
+                            if salinity_quality_idx >= 0:
+                                salinity_quality = int(row[salinity_quality_idx])
+                            else:
+                                salinity_quality = -1
 
                             if oxygen_idx >= 0:
                                 oxygen = row[oxygen_idx]
                             else:
                                 oxygen = math.nan
                             assert isinstance(oxygen, float) or isinstance(oxygen, int)
+                            if oxygen_quality_idx >= 0:
+                                oxygen_quality = int(row[oxygen_quality_idx])
+                            else:
+                                oxygen_quality = -1
 
                             if pressure_idx >= 0:
                                 pressure = row[pressure_idx]
@@ -321,6 +354,10 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             assert isinstance(pressure, float) or isinstance(
                                 pressure, int
                             )
+                            if pressure_quality_idx >= 0:
+                                pressure_quality = int(row[pressure_quality_idx])
+                            else:
+                                pressure_quality = -1
 
                             yield StationData(
                                 filename=item,
@@ -329,12 +366,16 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 time=date,
                                 depth=depth,
                                 temperature_data=temperature,
+                                temperature_quality=temperature_quality,
                                 temperature_units=temperature_units,
                                 salinity_data=salinity,
+                                salinity_quality=salinity_quality,
                                 salinity_units=salinity_units,
                                 oxygen_data=oxygen,
+                                oxygen_quality=oxygen_quality,
                                 oxygen_units=oxygen_units,
                                 pressure_data=pressure,
+                                pressure_quality=pressure_quality,
                                 pressure_units=pressure_units,
                             )
 
@@ -405,12 +446,16 @@ class StationDb:
                 :time,
                 :depth,
                 :temperature_data,
+                :temperature_quality,
                 :temperature_units,
                 :salinity_data,
+                :salinity_quality,
                 :salinity_units,
                 :oxygen_data,
+                :oxygen_quality,
                 :oxygen_units,
                 :pressure_data,
+                :pressure_quality,
                 :pressure_units
             )""",
                 value.as_dict(),
