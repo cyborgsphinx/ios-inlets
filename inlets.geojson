@@ -93,8 +93,8 @@
         "name": "Bute Inlet",
         "boundaries": [400, 500, 600],
         "limits": {
-          "oxygen": [0, 9],
-          "salinity": [30, 31.5]
+          "oxygen": [1, 5],
+          "salinity": [30.3, 31]
         }
       },
       "geometry": {
