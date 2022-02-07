@@ -321,7 +321,10 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 temperature, int
                             )
                             if temperature_quality_idx >= 0:
-                                temperature_quality = int(row[temperature_quality_idx])
+                                try:
+                                    temperature_quality = int(row[temperature_quality_idx])
+                                except ValueError:
+                                    temperature_quality = -1
                             else:
                                 temperature_quality = -1
 
@@ -333,7 +336,10 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 salinity, int
                             )
                             if salinity_quality_idx >= 0:
-                                salinity_quality = int(row[salinity_quality_idx])
+                                try:
+                                    salinity_quality = int(row[salinity_quality_idx])
+                                except ValueError:
+                                    salinity_quality = -1
                             else:
                                 salinity_quality = -1
 
@@ -343,7 +349,10 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 oxygen = math.nan
                             assert isinstance(oxygen, float) or isinstance(oxygen, int)
                             if oxygen_quality_idx >= 0:
-                                oxygen_quality = int(row[oxygen_quality_idx])
+                                try:
+                                    oxygen_quality = int(row[oxygen_quality_idx])
+                                except ValueError:
+                                    oxygen_quality = -1
                             else:
                                 oxygen_quality = -1
 
@@ -355,7 +364,10 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 pressure, int
                             )
                             if pressure_quality_idx >= 0:
-                                pressure_quality = int(row[pressure_quality_idx])
+                                try:
+                                    pressure_quality = int(row[pressure_quality_idx])
+                                except ValueError:
+                                    pressure_quality = -1
                             else:
                                 pressure_quality = -1
 
