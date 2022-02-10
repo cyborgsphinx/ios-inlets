@@ -180,7 +180,7 @@
         "name": "Indian Arm",
         "boundaries": [100, 150, 200],
         "limits": {
-          "salinity": [25.8, 28.7]
+          "salinity": [25, 30]
         }
       },
       "geometry": {

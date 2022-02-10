@@ -13,24 +13,43 @@ INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s"]
 def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
-    if len(limits) > 1:
-        axes = plt.axes()
-        axes.set_ylim(limits[0], limits[1])
     shallow_time, shallow_data = data_fn(inlet, inlets.SHALLOW)
+    middle_time, middle_data = data_fn(inlet, inlets.MIDDLE)
+    deep_time, deep_data = data_fn(inlet, inlets.DEEP)
+    if len(limits) > 1:
+        shallow_time, shallow_data = zip(
+            *[
+                [t, d]
+                for t, d in zip(shallow_time, shallow_data)
+                if limits[0] < d < [limits[1]]
+            ]
+        )
+        middle_time, middle_data = zip(
+            *[
+                [t, d]
+                for t, d in zip(middle_time, middle_data)
+                if limits[0] < d < [limits[1]]
+            ]
+        )
+        deep_time, deep_data = zip(
+            *[
+                [t, d]
+                for t, d in zip(deep_time, deep_data)
+                if limits[0] < d < [limits[1]]
+            ]
+        )
     plt.plot(
         shallow_time,
         shallow_data,
         "xg",
         label=f"{inlet.shallow_bounds[0]}m-{inlet.shallow_bounds[1]}m",
     )
-    middle_time, middle_data = data_fn(inlet, inlets.MIDDLE)
     plt.plot(
         middle_time,
         middle_data,
         "+m",
         label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m",
     )
-    deep_time, deep_data = data_fn(inlet, inlets.DEEP)
     deep_label = (
         f">{inlet.deep_bounds[0]}m"
         if inlet.deep_bounds[1] is None
