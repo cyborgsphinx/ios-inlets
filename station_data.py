@@ -252,7 +252,11 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         temperature_idx = inlets.find_column(
                             channels, "Temperature", "C", "'deg C'"
                         )
-                        temperature_quality_idx = temperature_idx + 1 if inlets.has_quality(temperature_idx, names) else -1
+                        temperature_quality_idx = (
+                            temperature_idx + 1
+                            if inlets.has_quality(temperature_idx, names)
+                            else -1
+                        )
                         temperature_pad = inlets.get_pad_value(
                             channel_details, temperature_idx
                         )
@@ -263,7 +267,11 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         salinity_idx = inlets.find_column(
                             channels, "Salinity", "PSU", "PSS-78"
                         )
-                        salinity_quality_idx = salinity_idx + 1 if inlets.has_quality(salinity_idx, names) else -1
+                        salinity_quality_idx = (
+                            salinity_idx + 1
+                            if inlets.has_quality(salinity_idx, names)
+                            else -1
+                        )
                         salinity_pad = inlets.get_pad_value(
                             channel_details, salinity_idx
                         )
@@ -272,7 +280,11 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         salinity_units = inlets.get_units(channels, salinity_idx)
 
                         oxygen_idx = inlets.find_column(channels, "Oxygen", "mL/L")
-                        oxygen_quality_idx = oxygen_idx + 1 if inlets.has_quality(oxygen_idx, names) else -1
+                        oxygen_quality_idx = (
+                            oxygen_idx + 1
+                            if inlets.has_quality(oxygen_idx, names)
+                            else -1
+                        )
                         oxygen_pad = inlets.get_pad_value(channel_details, oxygen_idx)
                         if oxygen_pad is None or math.isnan(oxygen_pad):
                             oxygen_pad = -99
@@ -281,7 +293,11 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                         pressure_idx = inlets.find_column(
                             channels, "Pressure", "dbar", "decibar"
                         )
-                        pressure_quality_idx = pressure_idx + 1 if inlets.has_quality(pressure_idx, names) else -1
+                        pressure_quality_idx = (
+                            pressure_idx + 1
+                            if inlets.has_quality(pressure_idx, names)
+                            else -1
+                        )
                         pressure_pad = inlets.get_pad_value(
                             channel_details, pressure_idx
                         )
@@ -296,7 +312,9 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 date = shell.file.start_time
                             if time_idx >= 0:
                                 time = row[time_idx]
-                                if isinstance(date, datetime.date) and not isinstance(date, datetime.datetime):
+                                if isinstance(date, datetime.date) and not isinstance(
+                                    date, datetime.datetime
+                                ):
                                     assert isinstance(time, datetime.time)
                                     date = datetime.datetime.combine(
                                         date, time, tzinfo=shell.get_time().tzinfo
@@ -322,7 +340,9 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             )
                             if temperature_quality_idx >= 0:
                                 try:
-                                    temperature_quality = int(row[temperature_quality_idx])
+                                    temperature_quality = int(
+                                        row[temperature_quality_idx]
+                                    )
                                 except ValueError:
                                     temperature_quality = -1
                             else:
