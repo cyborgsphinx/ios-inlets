@@ -97,9 +97,7 @@ def test_find_oxygen_data(source):
         os.path.join("CTD", "1966-062-0129.ctd.nc"),
         os.path.join("BOT", "1978-033-0013.bot.nc"),
         os.path.join("BOT", "1994-003-0001.che.nc"),
-        pytest.param(
-            os.path.join("BOT", "1994-022-0001.che.nc"), marks=pytest.mark.xfail
-        ),
+        os.path.join("BOT", "1994-022-0001.che.nc"),
     ],
 )
 def test_find_depth_data(source):

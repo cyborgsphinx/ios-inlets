@@ -154,7 +154,7 @@ def find_oxygen_data(data):
 
 
 def find_depth_data(data):
-    depth_names = ["depth", "instrument_depth", "PPSAADCP"]
+    depth_names = ["depth", "depth_nominal", "instrument_depth", "PPSAADCP"]
     depth_units = ["m", "metres"]
     return find_data(data, depth_names, depth_units)
 
