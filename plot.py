@@ -96,6 +96,8 @@ def chart_oxygen_data(inlet: inlets.Inlet, limits: List[float], use_averages: bo
 
 
 def chart_stations(inlet: inlets.Inlet, _limits: List[float], _use_averages: bool):
+    # `limits` and `use_averages` are only present to conform to expected function type
+    del _limits, _use_averages
     plt.clf()
     data = []
     for year, stations in inlet.get_station_data(before=END).items():
@@ -129,8 +131,9 @@ def do_chart(
         plt.show()
     else:
         limits = "" if use_limits else "-full"
+        average = "-average" if use_averages else ""
         plt.savefig(
-            os.path.join("figures", f"{normalize(inlet.name)}-{kind}{limits}.png")
+            os.path.join("figures", f"{normalize(inlet.name)}-{kind}{limits}{average}.png")
         )
 
 
@@ -257,6 +260,7 @@ def main():
     parser.add_argument("-r", "--from-saved", action="store_true")
     parser.add_argument("-n", "--skip-netcdf", action="store_true")
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
+    parser.add_argument("--from-db", action="store_true")
     # plot args
     parser.add_argument("-s", "--show-figure", action="store_true")
     parser.add_argument("-l", "--no-limits", action="store_true")
@@ -270,6 +274,7 @@ def main():
     inlet_list = inlets.get_inlets(
         args.data,
         args.from_saved,
+        args.from_db,
         args.skip_netcdf,
         args.inlet_name,
         args.remove_inlet_name,

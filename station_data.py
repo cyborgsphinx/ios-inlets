@@ -126,12 +126,14 @@ def _extend_data(arr, length):
 
 
 def read_data(data_dir, inlet_list, skip_netcdf=False):
+    good_files = set()
     if not skip_netcdf:
         for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
             for item in fnmatch.filter(files, "*.nc"):
                 print("NetCDF file:", item)
                 file_name = os.path.join(root, item)
                 data = xarray.open_dataset(file_name)
+                good_file = True
                 for inlet in inlet_list:
                     if inlet.contains(data):
                         assert any(dim in data.dims for dim in ["time", "z"])
@@ -178,22 +180,27 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             if depth_data is not None:
                                 depth_value = depth_data[i]
                             else:
+                                good_file = False
                                 depth_value = math.nan
                             if temperature_data is not None:
                                 temperature_value = temperature_data[i]
                             else:
+                                good_file = False
                                 temperature_value = math.nan
                             if salinity_data is not None:
                                 salinity_value = salinity_data[i]
                             else:
+                                good_file = False
                                 salinity_value = math.nan
                             if oxygen_data is not None:
                                 oxygen_value = oxygen_data[i]
                             else:
+                                good_file = False
                                 oxygen_value = math.nan
                             if pressure_data is not None:
                                 pressure_value = pressure_data[i]
                             else:
+                                good_file = False
                                 pressure_value = math.nan
                             yield StationData(
                                 filename=item,
@@ -212,6 +219,8 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 pressure_data=pressure_value,
                                 pressure_units=pressure_units,
                             )
+                if good_file:
+                    good_files.add(item.split(".")[0])
 
     shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "adcp", "cur"]
     # make a list of all elements in shell_exts followed by their str.upper() versions
@@ -223,7 +232,10 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
     for root, dirs, files in os.walk(data_dir):
         for ext in exts:
             for item in fnmatch.filter(files, "*." + ext):
+                if item.split('.')[0] in good_files:
+                    continue
                 print("IOS Shell file:", item)
+                good_file = True
                 file_name = os.path.join(root, item)
                 try:
                     shell = ios.ShellFile.fromfile(file_name, process_data=False)
@@ -328,12 +340,14 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             ):
                                 depth = shell.instrument.depth
                             else:
+                                good_file = False
                                 depth = math.nan
                             assert isinstance(depth, float) or isinstance(depth, int)
 
                             if temperature_idx >= 0:
                                 temperature = row[temperature_idx]
                             else:
+                                good_file = False
                                 temperature = math.nan
                             assert isinstance(temperature, float) or isinstance(
                                 temperature, int
@@ -351,6 +365,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             if salinity_idx >= 0:
                                 salinity = row[salinity_idx]
                             else:
+                                good_file = False
                                 salinity = math.nan
                             assert isinstance(salinity, float) or isinstance(
                                 salinity, int
@@ -366,6 +381,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             if oxygen_idx >= 0:
                                 oxygen = row[oxygen_idx]
                             else:
+                                good_file = False
                                 oxygen = math.nan
                             assert isinstance(oxygen, float) or isinstance(oxygen, int)
                             if oxygen_quality_idx >= 0:
@@ -379,6 +395,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                             if pressure_idx >= 0:
                                 pressure = row[pressure_idx]
                             else:
+                                good_file = False
                                 pressure = math.nan
                             assert isinstance(pressure, float) or isinstance(
                                 pressure, int
@@ -410,6 +427,8 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
                                 pressure_quality=pressure_quality,
                                 pressure_units=pressure_units,
                             )
+                if good_file:
+                    good_files.add(item.split(".")[0])
 
             if "HISTORY" in dirs:
                 dirs.remove("HISTORY")
@@ -549,10 +568,17 @@ class StationDb:
                     )
             else:
                 print(f"Unknown error: {e}")
+        finally:
+            self.connection.commit()
 
     def data(self):
         # iterator/generator over data in table
-        pass
+        self.cursor.execute("select * from data")
+        data = self.cursor.fetchone()
+        print(data)
+        while data:
+            yield data
+            data = self.cursor.fetchone()
 
 
 if __name__ == "__main__":

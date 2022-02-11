@@ -968,6 +968,7 @@ class Inlet(object):
 def get_inlets(
     data_dir,
     from_saved=False,
+    from_db=False,
     skip_netcdf=False,
     inlet_names=[],
     drop_names=[],
@@ -977,6 +978,11 @@ def get_inlets(
     if from_saved:
         with open(PICKLE_NAME, mode="rb") as f:
             inlet_list = pickle.load(f)
+    elif from_db:
+        import station_data
+        db = station_data.StationDb(station_data.DB_NAME)
+        for row in db.data():
+            print(row)
     else:
         with open("inlets.geojson") as f:
             contents = json.load(f)["features"]
