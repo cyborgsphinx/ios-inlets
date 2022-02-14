@@ -980,6 +980,7 @@ def get_inlets(
             inlet_list = pickle.load(f)
     elif from_db:
         import station_data
+
         db = station_data.StationDb(station_data.DB_NAME)
         for row in db.data():
             print(row)

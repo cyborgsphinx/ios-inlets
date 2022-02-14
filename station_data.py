@@ -232,7 +232,7 @@ def read_data(data_dir, inlet_list, skip_netcdf=False):
     for root, dirs, files in os.walk(data_dir):
         for ext in exts:
             for item in fnmatch.filter(files, "*." + ext):
-                if item.split('.')[0] in good_files:
+                if item.split(".")[0] in good_files:
                     continue
                 print("IOS Shell file:", item)
                 good_file = True

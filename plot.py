@@ -286,24 +286,12 @@ def main():
             inlets.DEEP,
             chart_all_temperature,
         )
-        do_chart_all(
-            inlet_list, "salinity", inlets.SHALLOW, chart_all_salinity
-        )
-        do_chart_all(
-            inlet_list, "salinity", inlets.MIDDLE, chart_all_salinity
-        )
-        do_chart_all(
-            inlet_list, "salinity", inlets.DEEP, chart_all_salinity
-        )
-        do_chart_all(
-            inlet_list, "oxygen", inlets.SHALLOW, chart_all_oxygen
-        )
-        do_chart_all(
-            inlet_list, "oxygen", inlets.MIDDLE, chart_all_oxygen
-        )
-        do_chart_all(
-            inlet_list, "oxygen", inlets.DEEP, chart_all_oxygen
-        )
+        do_chart_all(inlet_list, "salinity", inlets.SHALLOW, chart_all_salinity)
+        do_chart_all(inlet_list, "salinity", inlets.MIDDLE, chart_all_salinity)
+        do_chart_all(inlet_list, "salinity", inlets.DEEP, chart_all_salinity)
+        do_chart_all(inlet_list, "oxygen", inlets.SHALLOW, chart_all_oxygen)
+        do_chart_all(inlet_list, "oxygen", inlets.MIDDLE, chart_all_oxygen)
+        do_chart_all(inlet_list, "oxygen", inlets.DEEP, chart_all_oxygen)
     else:
         for inlet in inlet_list:
             do_chart(
