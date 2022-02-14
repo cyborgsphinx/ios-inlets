@@ -116,7 +116,6 @@ def normalize(string: str):
 def do_chart(
     inlet: inlets.Inlet,
     kind: str,
-    show_figure: bool,
     use_limits: bool,
     chart_fn,
     use_averages: bool,
@@ -127,14 +126,11 @@ def do_chart(
         inlet.limits[kind] if use_limits and kind in inlet.limits else [],
         use_averages,
     )
-    if show_figure:
-        plt.show()
-    else:
-        limits = "" if use_limits else "-full"
-        average = "-average" if use_averages else ""
-        plt.savefig(
-            os.path.join("figures", f"{normalize(inlet.name)}-{kind}{limits}{average}.png")
-        )
+    limits = "" if use_limits else "-full"
+    average = "-average" if use_averages else ""
+    plt.savefig(
+        os.path.join("figures", f"{normalize(inlet.name)}-{kind}{limits}{average}.png")
+    )
 
 
 def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn):
@@ -164,28 +160,22 @@ def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn):
     plt.legend()
 
 
-def chart_temperature_anomalies(inlet_list: List[inlets.Inlet], show_figure: bool):
+def chart_temperature_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing temperature anomaly plot")
     chart_anomalies(inlet_list, lambda inlet: inlet.temperature_data)
 
     plt.ylabel("Temperature (C)")
     plt.title("Deep Water Temperature Anomalies")
-    if show_figure:
-        plt.show()
-    else:
-        plt.savefig(os.path.join("figures", f"deep-water-temperature-anomalies.png"))
+    plt.savefig(os.path.join("figures", f"deep-water-temperature-anomalies.png"))
 
 
-def chart_salinity_anomalies(inlet_list: List[inlets.Inlet], show_figure: bool):
+def chart_salinity_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing salinity anomaly plot")
     chart_anomalies(inlet_list, lambda inlet: inlet.salinity_data)
 
     plt.ylabel("Salinity (PSU)")
     plt.title("Deep Water Salinity Anomalies")
-    if show_figure:
-        plt.show()
-    else:
-        plt.savefig(os.path.join("figures", f"deep-water-salinity-anomalies.png"))
+    plt.savefig(os.path.join("figures", f"deep-water-salinity-anomalies.png"))
 
 
 def chart_all_data(times, data, label=""):
@@ -227,7 +217,7 @@ def chart_all_oxygen(inlet, bucket):
     plt.ylabel("DO (ml/l)")
 
 
-def do_chart_all(inlet_list, kind, bucket, show_figure, chart_all_fn):
+def do_chart_all(inlet_list, kind, bucket, chart_all_fn):
     print(f"Producing {kind} plot for {bucket}")
     plt.clf()
     for inlet in inlet_list:
@@ -248,10 +238,7 @@ def do_chart_all(inlet_list, kind, bucket, show_figure, chart_all_fn):
         plt.title(f"{kind.capitalize()} comparison from {lowest}m to {highest}m")
         bounds = f"{lowest}-{highest}"
     plt.legend()
-    if show_figure:
-        plt.show()
-    else:
-        plt.savefig(os.path.join("figures", f"{bounds}-{kind}-{names}.png"))
+    plt.savefig(os.path.join("figures", f"{bounds}-{kind}-{names}.png"))
 
 
 def main():
@@ -262,7 +249,6 @@ def main():
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     parser.add_argument("--from-db", action="store_true")
     # plot args
-    parser.add_argument("-s", "--show-figure", action="store_true")
     parser.add_argument("-l", "--no-limits", action="store_true")
     parser.add_argument("-i", "--inlet-name", type=str, nargs="+", default=[])
     parser.add_argument("-k", "--limit-name", type=str, nargs="+", default=[])
@@ -286,47 +272,43 @@ def main():
             inlet_list,
             "temperature",
             inlets.SHALLOW,
-            args.show_figure,
             chart_all_temperature,
         )
         do_chart_all(
             inlet_list,
             "temperature",
             inlets.MIDDLE,
-            args.show_figure,
             chart_all_temperature,
         )
         do_chart_all(
             inlet_list,
             "temperature",
             inlets.DEEP,
-            args.show_figure,
             chart_all_temperature,
         )
         do_chart_all(
-            inlet_list, "salinity", inlets.SHALLOW, args.show_figure, chart_all_salinity
+            inlet_list, "salinity", inlets.SHALLOW, chart_all_salinity
         )
         do_chart_all(
-            inlet_list, "salinity", inlets.MIDDLE, args.show_figure, chart_all_salinity
+            inlet_list, "salinity", inlets.MIDDLE, chart_all_salinity
         )
         do_chart_all(
-            inlet_list, "salinity", inlets.DEEP, args.show_figure, chart_all_salinity
+            inlet_list, "salinity", inlets.DEEP, chart_all_salinity
         )
         do_chart_all(
-            inlet_list, "oxygen", inlets.SHALLOW, args.show_figure, chart_all_oxygen
+            inlet_list, "oxygen", inlets.SHALLOW, chart_all_oxygen
         )
         do_chart_all(
-            inlet_list, "oxygen", inlets.MIDDLE, args.show_figure, chart_all_oxygen
+            inlet_list, "oxygen", inlets.MIDDLE, chart_all_oxygen
         )
         do_chart_all(
-            inlet_list, "oxygen", inlets.DEEP, args.show_figure, chart_all_oxygen
+            inlet_list, "oxygen", inlets.DEEP, chart_all_oxygen
         )
     else:
         for inlet in inlet_list:
             do_chart(
                 inlet,
                 "temperature",
-                args.show_figure,
                 not args.no_limits,
                 chart_temperatures,
                 args.use_averages,
@@ -334,7 +316,6 @@ def main():
             do_chart(
                 inlet,
                 "salinity",
-                args.show_figure,
                 not args.no_limits,
                 chart_salinities,
                 args.use_averages,
@@ -342,7 +323,6 @@ def main():
             do_chart(
                 inlet,
                 "oxygen",
-                args.show_figure,
                 not args.no_limits,
                 chart_oxygen_data,
                 args.use_averages,
@@ -350,14 +330,13 @@ def main():
             do_chart(
                 inlet,
                 "stations",
-                args.show_figure,
                 not args.no_limits,
                 chart_stations,
                 args.use_averages,
             )
     if args.plot_anomalies:
-        chart_temperature_anomalies(inlet_list, args.show_figure)
-        chart_salinity_anomalies(inlet_list, args.show_figure)
+        chart_temperature_anomalies(inlet_list)
+        chart_salinity_anomalies(inlet_list)
     plt.close()
 
 
