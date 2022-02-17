@@ -317,7 +317,7 @@ def main():
             )
             do_chart(
                 inlet,
-                "stations",
+                "samples",
                 not args.no_limits,
                 chart_stations,
                 args.use_averages,
