@@ -54,6 +54,19 @@ def take_lesser_than(inlet, lesser_than):
     return inlet
 
 
+def take_deeper(inlet, depth):
+    inlet.temperature_data = [
+        datum for datum in inlet.temperature_data if datum.depth >= depth
+    ]
+    inlet.salinity_data = [
+        datum for datum in inlet.salinity_data if datum.depth >= depth
+    ]
+    inlet.oxygen_data = [
+        datum for datum in inlet.oxygen_data if datum.depth >= depth
+    ]
+    return inlet
+
+
 def take_used(inlet):
     inlet.temperature_data = [
         datum for datum in inlet.temperature_data if datum.bucket != inlets.IGNORE
@@ -112,6 +125,7 @@ def main():
     parser.add_argument("-s", "--only-salinity", action="store_true")
     parser.add_argument("-o", "--only-oxygen", action="store_true")
     parser.add_argument("-u", "--only-used", action="store_true")
+    parser.add_argument("-m", "--depth", type=float, nargs="?", default=None)
     parser.add_argument("--file-name", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(args.data, args.from_saved, args.skip_netcdf)
@@ -126,6 +140,8 @@ def main():
         ]
     if args.lesser_than is not None:
         inlet_list = [take_lesser_than(inlet, args.lesser_than) for inlet in inlet_list]
+    if args.depth is not None:
+        inlet_list = [take_deeper(inlet, args.depth) for inlet in inlet_list]
 
     if any(
         [
