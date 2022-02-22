@@ -10,6 +10,10 @@ END = datetime.datetime.now()
 INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s"]
 
 
+def figure_path(filename: str):
+    return os.path.join("figures", filename)
+
+
 def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
@@ -129,7 +133,7 @@ def do_chart(
     limits = "" if use_limits else "-full"
     average = "-average" if use_averages else ""
     plt.savefig(
-        os.path.join("figures", f"{normalize(inlet.name)}-{kind}{limits}{average}.png")
+        figure_path(f"{normalize(inlet.name)}-{kind}{limits}{average}.png")
     )
 
 
@@ -166,7 +170,7 @@ def chart_temperature_anomalies(inlet_list: List[inlets.Inlet]):
 
     plt.ylabel("Temperature (C)")
     plt.title("Deep Water Temperature Anomalies")
-    plt.savefig(os.path.join("figures", f"deep-water-temperature-anomalies.png"))
+    plt.savefig(figure_path("deep-water-temperature-anomalies.png"))
 
 
 def chart_salinity_anomalies(inlet_list: List[inlets.Inlet]):
@@ -175,7 +179,16 @@ def chart_salinity_anomalies(inlet_list: List[inlets.Inlet]):
 
     plt.ylabel("Salinity (PSU)")
     plt.title("Deep Water Salinity Anomalies")
-    plt.savefig(os.path.join("figures", f"deep-water-salinity-anomalies.png"))
+    plt.savefig(figure_path("deep-water-salinity-anomalies.png"))
+
+
+def chart_oxygen_anomalies(inlet_list: List[inlets.Inlet]):
+    print("Producing oxygen anomaly plot")
+    chart_anomalies(inlet_list, lambda inlet: inlet.oxygen_data)
+
+    plt.ylabel("Oxygen (mL/L)")
+    plt.title("Deep Water Dissolved Oxygen Anomalies")
+    plt.savefig(figure_path("deep-water-oxygen-anomalies.png"))
 
 
 def chart_all_data(times, data, label=""):
@@ -238,8 +251,58 @@ def do_chart_all(inlet_list, kind, bucket, chart_all_fn):
         plt.title(f"{kind.capitalize()} comparison from {lowest}m to {highest}m")
         bounds = f"{lowest}-{highest}"
     plt.legend()
-    plt.savefig(os.path.join("figures", f"{bounds}-{kind}-{names}.png"))
+    plt.savefig(figure_path(f"{bounds}-{kind}-{names}.png"))
 
+
+def do_chart_annual_averages(inlet_list: List[inlets.Inlet], data_fn):
+    plt.clf()
+    for inlet, line_style in zip(inlet_list, INLET_LINES):
+        totals = {}
+        data = [
+            datum
+            for datum in data_fn(inlet)
+            if datum.bucket != inlets.IGNORE and not numpy.isnan(datum.datum)
+        ]
+        for datum in data:
+            year = datum.time.year
+            if year not in totals:
+                totals[year] = (0, 0)
+            total, num = totals[year]
+            totals[year] = (total + datum.datum, num + 1)
+
+        avgs = {y: t / n for y, (t, n) in totals.items()}
+
+        years, averages = zip(*sorted(avgs.items(), key=lambda item: item[0]))
+        plt.plot(years, averages, line_style, label=inlet.name)
+
+    plt.legend()
+
+
+def chart_annual_temperature_averages(inlet_list: List[inlets.Inlet]):
+    print("Producing annual temperature plot")
+    do_chart_annual_averages(inlet_list, lambda inlet: inlet.temperature_data)
+
+    plt.ylabel("Temperature (C)")
+    plt.title("Deep Water Temperature Annual Averages")
+    plt.savefig(figure_path("deep-water-temperature-annual-averages.png"))
+
+
+def chart_annual_salinity_averages(inlet_list: List[inlets.Inlet]):
+    print("Producing annual salinity plot")
+    do_chart_annual_averages(inlet_list, lambda inlet: inlet.salinity_data)
+
+    plt.ylabel("Salinity (PSU)")
+    plt.title("Deep Water Salinity Annual Averages")
+    plt.savefig(figure_path("deep-water-salinity-annual-averages.png"))
+
+
+def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet]):
+    print("Producing annual oxygen plot")
+    do_chart_annual_averages(inlet_list, lambda inlet: inlet.oxygen_data)
+
+    plt.ylabel("Oxygen (mL/L)")
+    plt.title("Deep Water Dissolved Oxygen Annual Averages")
+    plt.savefig(figure_path("deep-water-oxygen-annual-averages.png"))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -255,7 +318,7 @@ def main():
     parser.add_argument("-I", "--remove-inlet-name", type=str, nargs="+", default=[])
     parser.add_argument("-b", "--plot-buckets", action="store_true")
     parser.add_argument("-a", "--use-averages", action="store_true")
-    parser.add_argument("-p", "--plot-anomalies", action="store_true")
+    parser.add_argument("-A", "--plot-annual", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(
         args.data,
@@ -267,7 +330,14 @@ def main():
         args.limit_name,
     )
     plt.figure(figsize=(8, 6))
-    if args.plot_buckets:
+    if args.plot_annual:
+        chart_annual_temperature_averages(inlet_list)
+        chart_annual_salinity_averages(inlet_list)
+        chart_annual_oxygen_averages(inlet_list)
+        chart_temperature_anomalies(inlet_list)
+        chart_salinity_anomalies(inlet_list)
+        chart_oxygen_anomalies(inlet_list)
+    elif args.plot_buckets:
         do_chart_all(
             inlet_list,
             "temperature",
@@ -322,9 +392,6 @@ def main():
                 chart_stations,
                 args.use_averages,
             )
-    if args.plot_anomalies:
-        chart_temperature_anomalies(inlet_list)
-        chart_salinity_anomalies(inlet_list)
     plt.close()
 
 
