@@ -256,7 +256,7 @@ python-versions = "*"
 
 [[package]]
 name = "ios-shell"
-version = "0.1.58"
+version = "1.0.0"
 description = "Parses files formatted by the Institute of Ocean Sciences' IOSShell tool"
 category = "main"
 optional = false
@@ -1186,7 +1186,7 @@ viz = ["matplotlib", "seaborn", "nc-time-axis"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.10"
-content-hash = "71cf92a9cc7b20886ff5cc68b13ae2691bbf478f366e76e888f2d6ebd8ca53ea"
+content-hash = "9c658017c0d7af0eb1b8ee99a1f99f9d765375ff1b7c51ebd5d6c58d1169d400"
 
 [metadata.files]
 appnope = [
@@ -1404,8 +1404,8 @@ iniconfig = [
     {file = "iniconfig-1.1.1.tar.gz", hash = "sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32"},
 ]
 ios-shell = [
-    {file = "ios-shell-0.1.58.tar.gz", hash = "sha256:39e4fdd7c180bf5465e5eee40be464c25448eb1a205fc0a0829014838e1ca8b2"},
-    {file = "ios_shell-0.1.58-py3-none-any.whl", hash = "sha256:970aea0af1a3db0f0c0d6c7fb110fea935d6edd5fcd729ab286ec91446bca5e2"},
+    {file = "ios-shell-1.0.0.tar.gz", hash = "sha256:2f700020054389e93ff15cbe5d849ea939c9bb992a9230b8282a8f22fb3506f7"},
+    {file = "ios_shell-1.0.0-py3-none-any.whl", hash = "sha256:3232bb07f40ef986e3647c340e7546f3fbdf9a83228352ea5975cd73b938ebee"},
 ]
 ipykernel = [
     {file = "ipykernel-6.9.1-py3-none-any.whl", hash = "sha256:4fae9df6e192837552b2406a6052d707046dd2e153860be73c68484bacba18ed"},
