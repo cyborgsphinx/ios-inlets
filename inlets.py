@@ -26,6 +26,8 @@ EXCEPTIONALLY_BIG = 9.9e36
 
 
 def get_length(arr):
+    if arr is None:
+        return 0
     return arr.size if hasattr(arr, "size") else len(arr)
 
 
@@ -192,8 +194,8 @@ def has_quality(value_index, names):
 
 def is_acceptable_quality(quality_value):
     # 2 is "inconsistent with climatology" in the vast majority of observed cases
-    bad_qualities = ["2", "3", "4"]
-    return not any(value in quality_value for value in bad_qualities)
+    bad_qualities = [2, 3, 4]
+    return quality_value not in bad_qualities
 
 
 def get_int(value):
@@ -204,14 +206,12 @@ def get_int(value):
         return int(num)
 
 
-def extract_data(source, index, replace, has_quality=False):
+def extract_data(source, index, replace):
     if index < 0:
         return None
     return reinsert_nan(
         (
-            numpy.nan
-            if has_quality and not is_acceptable_quality(str(row[index + 1]))
-            else to_float(row[index])
+            to_float(row[index])
             for row in source
         ),
         replace,
@@ -433,6 +433,7 @@ class InletData(object):
     bucket: str
     depth: float
     datum: float
+    quality: int
     longitude: float
     latitude: float
     filename: str
@@ -561,6 +562,7 @@ class Inlet(object):
         times,
         depths,
         data,
+        quality,
         longitude,
         latitude,
         filename,
@@ -580,7 +582,7 @@ class Inlet(object):
 
         out = []
         once = [False] * 3
-        for t, d, datum in zip(times, depths, data):
+        for t, d, datum, q in zip(times, depths, data, quality):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
@@ -606,12 +608,15 @@ class Inlet(object):
                 category = DEEP
             else:
                 category = IGNORE
+            if not is_acceptable_quality(q):
+                category = IGNORE
             out.append(
                 InletData(
                     get_datetime(t),
                     category,
                     d,
                     datum,
+                    q,
                     longitude,
                     latitude,
                     filename,
@@ -682,6 +687,7 @@ class Inlet(object):
         )
 
         placeholder = -99
+        assumed_quality = 1 # assume good for netCDF data
 
         if temperature is not None:
             self.temperature_data.extend(
@@ -689,6 +695,7 @@ class Inlet(object):
                     get_array(time),
                     get_array(depth),
                     get_array(temperature),
+                    numpy.full(get_length(temperature), assumed_quality),
                     longitude,
                     latitude,
                     filename,
@@ -702,6 +709,7 @@ class Inlet(object):
                     get_array(time),
                     get_array(depth),
                     get_array(salinity),
+                    numpy.full(get_length(salinity), assumed_quality),
                     longitude,
                     latitude,
                     filename,
@@ -716,6 +724,7 @@ class Inlet(object):
                     get_array(time),
                     get_array(depth),
                     get_array(oxygen),
+                    numpy.full(get_length(oxygen), assumed_quality),
                     longitude,
                     latitude,
                     filename,
@@ -754,44 +763,40 @@ class Inlet(object):
         depth_pad = get_pad_value(channel_details, depth_idx)
         if depth_pad is None or numpy.isnan(depth_pad):
             depth_pad = -99
-        depth_data = extract_data(
-            data.data, depth_idx, depth_pad, has_quality(depth_idx, names)
-        )
+        depth_data = extract_data(data.data, depth_idx, depth_pad)
 
         temperature_idx = find_column(channels, "Temperature", "C", "'deg C'")
         temperature_pad = get_pad_value(channel_details, temperature_idx)
         if temperature_pad is None or numpy.isnan(temperature_pad):
             temperature_pad = -99
-        temperature_data = extract_data(
-            data.data,
-            temperature_idx,
-            temperature_pad,
-            has_quality(temperature_idx, names),
-        )
+        temperature_data = extract_data(data.data, temperature_idx, temperature_pad)
+        temperature_quality = [0] * get_length(temperature_data)
+        if has_quality(temperature_idx, names):
+            temperature_quality = extract_data(data.data, temperature_idx + 1, 0)
 
         salinity_idx = find_column(channels, "Salinity", "PSU", "PSS-78")
         salinity_pad = get_pad_value(channel_details, salinity_idx)
         if salinity_pad is None or numpy.isnan(salinity_pad):
             salinity_pad = -99
-        salinity_data = extract_data(
-            data.data, salinity_idx, salinity_pad, has_quality(salinity_idx, names)
-        )
+        salinity_data = extract_data(data.data, salinity_idx, salinity_pad)
+        salinity_quality = [0] * get_length(salinity_data)
+        if has_quality(salinity_idx, names):
+            salinity_quality = extract_data(data.data, salinity_idx + 1, 0)
 
         oxygen_idx = find_column(channels, "Oxygen", "mL/L")
         oxygen_pad = get_pad_value(channel_details, oxygen_idx)
         if oxygen_pad is None or numpy.isnan(oxygen_pad):
             oxygen_pad = -99
-        oxygen_data = extract_data(
-            data.data, oxygen_idx, oxygen_pad, has_quality(oxygen_idx, names)
-        )
+        oxygen_data = extract_data(data.data, oxygen_idx, oxygen_pad)
+        oxygen_quality = [0] * get_length(oxygen_data)
+        if has_quality(oxygen_idx, names):
+            oxygen_quality = extract_data(data.data, oxygen_idx + 1, 0)
 
         pressure_idx = find_column(channels, "Pressure", "dbar", "decibar")
         pressure_pad = get_pad_value(channel_details, pressure_idx)
         if pressure_pad is None or numpy.isnan(pressure_pad):
             pressure_pad = -99
-        pressure_data = extract_data(
-            data.data, pressure_idx, pressure_pad, has_quality(pressure_idx, names)
-        )
+        pressure_data = extract_data(data.data, pressure_idx, pressure_pad)
 
         if (
             depth_data is None
@@ -834,6 +839,7 @@ class Inlet(object):
                     time,
                     depth_data,
                     temperature_data,
+                    temperature_quality,
                     longitude,
                     latitude,
                     data.filename,
@@ -847,6 +853,7 @@ class Inlet(object):
                     time,
                     depth_data,
                     salinity_data,
+                    salinity_quality,
                     longitude,
                     latitude,
                     data.filename,
@@ -861,6 +868,7 @@ class Inlet(object):
                     time,
                     depth_data,
                     oxygen_data,
+                    oxygen_quality,
                     longitude,
                     latitude,
                     data.filename,
@@ -930,12 +938,15 @@ class Inlet(object):
             logging.warning("No latitude")
             latitude = math.nan
 
+        assumed_quality = 1 # assume good quality for hakai csv data
+
         self.temperature_data.append(
             InletData(
                 time=time,
                 bucket=bucket,
                 depth=depth,
                 datum=temperature,
+                quality=assumed_quality,
                 longitude=longitude,
                 latitude=latitude,
                 filename=filename,
@@ -947,6 +958,7 @@ class Inlet(object):
                 bucket=bucket,
                 depth=depth,
                 datum=salinity,
+                quality=assumed_quality,
                 longitude=longitude,
                 latitude=latitude,
                 filename=filename,
@@ -958,6 +970,7 @@ class Inlet(object):
                 bucket=bucket,
                 depth=depth,
                 datum=oxygen_ml_l,
+                quality=assumed_quality,
                 longitude=longitude,
                 latitude=latitude,
                 filename=filename,
