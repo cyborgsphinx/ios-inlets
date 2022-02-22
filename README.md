@@ -33,10 +33,17 @@ to get all the rest of the dependencies. To get dependencies which are useful fo
 
 instead.
 
-## Notes
+## Usage
 
-In order to produce a valuable graph, some of the shell files needed to be tweaked in order to be self-consistent.
-This is a list of the changes made.
+To get temperature, salinity, and dissovled oxygen plots of all the inlets defined in `inlets.geojson`, run
 
-- Changes made directly to data/www.waterproperties.ca/osd_data_archive/UBC/8703/87030005.UBC
--- Modified pad value of salinity to be -9.99 instead of -9.999 since the actual value of the pad was -9.990
+    $ poetry run plot
+
+To get monthly averages for temperature, salinity, and dissolved oxygen for all inlets, run
+
+    $ poetry run plot -a
+
+To get annual plots for all inlets, run
+
+    $ poetry run plot -A
+
