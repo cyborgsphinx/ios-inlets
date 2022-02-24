@@ -6,7 +6,7 @@ import os
 from typing import List
 
 END = datetime.datetime.now()
-INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s"]
+INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s", "m-^"]
 
 
 ###################
