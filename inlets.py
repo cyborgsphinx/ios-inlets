@@ -20,6 +20,7 @@ SHALLOW = "shallow"
 MIDDLE = "middle"
 DEEP = "deep"
 IGNORE = "ignore"
+ALL = "all"
 EXCEPTIONALLY_BIG = 9.9e36
 
 
@@ -410,7 +411,7 @@ def get_data(col, bucket, before=None, do_average=False):
     data = [
         [datum.time, datum.value]
         for datum in col
-        if datum.bucket == bucket and not numpy.isnan(datum.value)
+        if bucket == ALL and datum.bucket != IGNORE or datum.bucket == bucket
     ]
     if before is not None:
         data = [[t, d] for t, d in data if t.year < before.year]
@@ -430,7 +431,7 @@ def get_outliers(col, bucket="all", before=None):
     data = [
         datum
         for datum in col
-        if (bucket == "all" or datum.bucket == bucket) and not numpy.isnan(datum.value)
+        if bucket == ALL and datum.bucket != IGNORE or datum.bucket == bucket
     ]
     if before is not None:
         data = [datum for datum in data if datum.time.year < before.year]
@@ -573,6 +574,7 @@ class Inlet(object):
 
         out = []
         once = [False] * 3
+        warn_unused = True
         for t, d, datum, q in zip(times, depths, data, quality):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
@@ -595,6 +597,8 @@ class Inlet(object):
                 if not once[2]:
                     logging.warning(f"Data from {filename} has NaN data, ignoring")
                     once[2] = True
+                # if a file winds up with no data because all the data was NaN, don't warn that it wasn't used
+                warn_unused = False
                 continue
             if self.is_shallow(d):
                 category = SHALLOW
@@ -621,7 +625,8 @@ class Inlet(object):
                 )
             )
         if len(out) == 0:
-            logging.warning(f"Data from {filename} not used")
+            if warn_unused:
+                logging.warning(f"Data from {filename} not used")
         else:
             self.used_files.add(os.path.basename(filename).lower())
         return out
