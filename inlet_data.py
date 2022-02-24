@@ -10,6 +10,10 @@ sqlite3.paramstyle = "named"
 DB_NAME = os.path.join("data", "inlet_data.db")
 
 
+def _table_name(inlet_name: str) -> str:
+    return inlet_name.lower().replace(" ", "_")
+
+
 @dataclass(frozen=True)
 class InletData:
     time: datetime.datetime
@@ -40,7 +44,7 @@ class InletData:
 
 class InletDb:
     def __init__(self, inlet_name: str, clear: bool = False, db_name: str = DB_NAME):
-        self.name = inlet_name
+        self.name = _table_name(inlet_name)
         self.connection = sqlite3.connect(db_name)
         self.connection.row_factory = sqlite3.Row
         if clear:
@@ -119,8 +123,8 @@ class InletDb:
     def __add_value(self, value: Dict[str, Any]):
         with self.connection:
             self.connection.execute(
-                """
-                insert into data
+                f"""
+                insert into {self.name}
                 values (
                     :name,
                     :kind,
@@ -141,8 +145,8 @@ class InletDb:
     def __add_data(self, data: Set[InletData], dict: Dict[str, Any]):
         with self.connection:
             self.connection.executemany(
-                """
-                insert into data
+                f"""
+                insert into {self.name}
                 values (
                     :name,
                     :kind,
@@ -175,7 +179,7 @@ class InletDb:
                 assumed_density=(row["assumed_density"] > 0),
             )
             for row in self.connection.execute(
-                """select * from data
+                f"""select * from {self.name}
                 where name=:name and kind=:kind
                 """,
                 {"name": self.name, "kind": kind},
@@ -186,7 +190,8 @@ class InletDb:
         if not self.__has_data_table():
             with self.connection:
                 self.connection.execute(
-                    """create table data (
+                    f"""
+                    create table {self.name} (
                         name text not null,
                         kind text not null,
                         filename text not null,
@@ -205,13 +210,14 @@ class InletDb:
     def __clear_data_table(self):
         if self.__has_data_table():
             with self.connection:
-                self.connection.execute("""drop table data""")
+                self.connection.execute(f"""drop table {self.name}""")
 
     def __has_data_table(self):
         cursor = self.connection.execute(
-            """select count(name)
+            f"""
+            select count(name)
             from sqlite_master
-            where type='table' and name='data'
+            where type='table' and name='{self.name}'
             """
         )
         return cursor.fetchone()[0] > 0
