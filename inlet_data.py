@@ -198,14 +198,7 @@ class InletDb:
                         bucket text not null,
                         quality integer not null,
                         computed integer not null,
-                        assumed_density integer not null,
-                        primary key (
-                            name,
-                            kind,
-                            filename,
-                            time,
-                            depth
-                        )
+                        assumed_density integer not null
                     )"""
                 )
 
