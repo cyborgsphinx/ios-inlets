@@ -6,6 +6,9 @@ from shapely.geometry import Polygon
 import xarray
 
 
+DB_NAME = ":memory:"
+
+
 def data_path(source):
     return os.path.join(os.path.dirname(__file__), "..", "data", "netCDF_Data", source)
 
@@ -124,7 +127,7 @@ def test_find_depth_data(source):
     ],
 )
 def test_inlet_contains(polygon, point):
-    inlet = inlets.Inlet("Test Inlet", polygon, [1, 2, 3], {})
+    inlet = inlets.Inlet("Test Inlet", polygon, [1, 2, 3], {}, db_name=DB_NAME)
     assert inlet.contains(point)
 
 
@@ -154,7 +157,11 @@ def test_inlet_add_temperature(source):
     if not os.path.isfile(file):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
-        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300], {}
+        "Test Inlet",
+        Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]),
+        [0, 150, 300],
+        {},
+        db_name=DB_NAME,
     )
     data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
@@ -188,7 +195,11 @@ def test_inlet_add_salinity(source):
     if not os.path.isfile(file):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
-        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300], {}
+        "Test Inlet",
+        Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]),
+        [0, 150, 300],
+        {},
+        db_name=DB_NAME,
     )
     data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)
@@ -234,7 +245,11 @@ def test_inlet_add_oxygen(source):
     if not os.path.isfile(file):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
-        "Test Inlet", Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]), [0, 150, 300], {}
+        "Test Inlet",
+        Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]),
+        [0, 150, 300],
+        {},
+        db_name=DB_NAME,
     )
     data = xarray.open_dataset(file)
     inlet.add_data_from_netcdf(data)

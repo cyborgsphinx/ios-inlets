@@ -61,9 +61,7 @@ def take_deeper(inlet, depth):
     inlet.salinity_data = [
         datum for datum in inlet.salinity_data if datum.depth >= depth
     ]
-    inlet.oxygen_data = [
-        datum for datum in inlet.oxygen_data if datum.depth >= depth
-    ]
+    inlet.oxygen_data = [datum for datum in inlet.oxygen_data if datum.depth >= depth]
     return inlet
 
 

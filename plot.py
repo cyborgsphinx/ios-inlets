@@ -25,22 +25,18 @@ def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
             *[
                 [t, d]
                 for t, d in zip(shallow_time, shallow_data)
-                if limits[0] < d < [limits[1]]
+                if limits[0] < d < limits[1]
             ]
         )
         middle_time, middle_data = zip(
             *[
                 [t, d]
                 for t, d in zip(middle_time, middle_data)
-                if limits[0] < d < [limits[1]]
+                if limits[0] < d < limits[1]
             ]
         )
         deep_time, deep_data = zip(
-            *[
-                [t, d]
-                for t, d in zip(deep_time, deep_data)
-                if limits[0] < d < [limits[1]]
-            ]
+            *[[t, d] for t, d in zip(deep_time, deep_data) if limits[0] < d < limits[1]]
         )
     plt.plot(
         shallow_time,
@@ -132,9 +128,7 @@ def do_chart(
     )
     limits = "" if use_limits else "-full"
     average = "-average" if use_averages else ""
-    plt.savefig(
-        figure_path(f"{normalize(inlet.name)}-{kind}{limits}{average}.png")
-    )
+    plt.savefig(figure_path(f"{normalize(inlet.name)}-{kind}{limits}{average}.png"))
 
 
 def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn):
@@ -144,16 +138,16 @@ def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn):
         data = [
             datum
             for datum in data_fn(inlet)
-            if datum.bucket != inlets.IGNORE and not numpy.isnan(datum.datum)
+            if datum.bucket != inlets.IGNORE and not numpy.isnan(datum.value)
         ]
         for datum in data:
             year = datum.time.year
             if year not in totals:
                 totals[year] = (0, 0)
             total, num = totals[year]
-            totals[year] = (total + datum.datum, num + 1)
+            totals[year] = (total + datum.value, num + 1)
 
-        avg = sum(x.datum for x in data) / len(data)
+        avg = sum(x.value for x in data) / len(data)
         avgs = {y: t / n for y, (t, n) in totals.items()}
 
         avg_diffs = {y: a - avg for y, a in avgs.items()}
@@ -261,14 +255,14 @@ def do_chart_annual_averages(inlet_list: List[inlets.Inlet], data_fn):
         data = [
             datum
             for datum in data_fn(inlet)
-            if datum.bucket != inlets.IGNORE and not numpy.isnan(datum.datum)
+            if datum.bucket != inlets.IGNORE and not numpy.isnan(datum.value)
         ]
         for datum in data:
             year = datum.time.year
             if year not in totals:
                 totals[year] = (0, 0)
             total, num = totals[year]
-            totals[year] = (total + datum.datum, num + 1)
+            totals[year] = (total + datum.value, num + 1)
 
         avgs = {y: t / n for y, (t, n) in totals.items()}
 
@@ -304,13 +298,13 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet]):
     plt.title("Deep Water Dissolved Oxygen Annual Averages")
     plt.savefig(figure_path("deep-water-oxygen-annual-averages.png"))
 
+
 def main():
     parser = argparse.ArgumentParser()
     # inlet retrieval args
     parser.add_argument("-r", "--from-saved", action="store_true")
     parser.add_argument("-n", "--skip-netcdf", action="store_true")
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
-    parser.add_argument("--from-db", action="store_true")
     # plot args
     parser.add_argument("-l", "--no-limits", action="store_true")
     parser.add_argument("-i", "--inlet-name", type=str, nargs="+", default=[])
@@ -323,7 +317,6 @@ def main():
     inlet_list = inlets.get_inlets(
         args.data,
         args.from_saved,
-        args.from_db,
         args.skip_netcdf,
         args.inlet_name,
         args.remove_inlet_name,

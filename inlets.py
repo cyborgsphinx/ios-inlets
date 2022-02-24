@@ -1,8 +1,8 @@
 import csv
-from dataclasses import dataclass
 import datetime
 import fnmatch
 import gsw
+import inlet_data
 import itertools
 import json
 import logging
@@ -10,19 +10,21 @@ import math
 import numpy
 import os
 import pandas
-import pickle
 import re
 from shapely.geometry import Point, Polygon
 from typing import Dict, List
 import xarray
 import ios_shell.shell as ios
 
-PICKLE_NAME = "inlets.pickle"
 SHALLOW = "shallow"
 MIDDLE = "middle"
 DEEP = "deep"
 IGNORE = "ignore"
 EXCEPTIONALLY_BIG = 9.9e36
+
+
+def db_name(inlet_name: str):
+    return os.path.join("data", inlet_name.lower().replace(" ", "_") + ".db")
 
 
 def get_length(arr):
@@ -210,10 +212,7 @@ def extract_data(source, index, replace):
     if index < 0:
         return None
     return reinsert_nan(
-        (
-            to_float(row[index])
-            for row in source
-        ),
+        (to_float(row[index]) for row in source),
         replace,
         length=len(source),
     )
@@ -409,9 +408,9 @@ def convert_oxygen(
 
 def get_data(col, bucket, before=None, do_average=False):
     data = [
-        [datum.time, datum.datum]
+        [datum.time, datum.value]
         for datum in col
-        if datum.bucket == bucket and not numpy.isnan(datum.datum)
+        if datum.bucket == bucket and not numpy.isnan(datum.value)
     ]
     if before is not None:
         data = [[t, d] for t, d in data if t.year < before.year]
@@ -427,29 +426,15 @@ def get_data(col, bucket, before=None, do_average=False):
     return zip(*data) if len(data) > 0 else [[], []]
 
 
-@dataclass
-class InletData(object):
-    time: datetime.datetime
-    bucket: str
-    depth: float
-    datum: float
-    quality: int
-    longitude: float
-    latitude: float
-    filename: str
-    computed: bool = False
-    assumed_density: bool = False
-
-
 def get_outliers(col, bucket="all", before=None):
     data = [
         datum
         for datum in col
-        if (bucket == "all" or datum.bucket == bucket) and not numpy.isnan(datum.datum)
+        if (bucket == "all" or datum.bucket == bucket) and not numpy.isnan(datum.value)
     ]
     if before is not None:
         data = [datum for datum in data if datum.time.year < before.year]
-    return [datum for datum in data if datum.datum < 3]
+    return [datum for datum in data if datum.value < 3]
 
 
 class Inlet(object):
@@ -459,6 +444,8 @@ class Inlet(object):
         polygon: Polygon,
         boundaries: List[int],
         limits: Dict[str, List[float]],
+        clear_old_data: bool = False,
+        db_name=None,
     ):
         self.name = name
         self.shallow_bounds = (boundaries[0], boundaries[1])
@@ -467,58 +454,62 @@ class Inlet(object):
             boundaries[2],
             boundaries[3] if len(boundaries) > 3 else None,
         )
-        self.temperature_data = []
-        self.salinity_data = []
-        self.oxygen_data = []
         self.polygon = polygon
         self.limits = limits
         self.used_files = set()
+        if db_name is not None:
+            self.data = inlet_data.InletDb(name, clear_old_data, db_name)
+        else:
+            self.data = inlet_data.InletDb(name, clear_old_data)
 
     def get_temperature_data(self, bucket, before=None, do_average=False):
-        return get_data(self.temperature_data, bucket, before, do_average)
+        return get_data(self.data.get_temperature_data(), bucket, before, do_average)
 
     def get_salinity_data(self, bucket, before=None, do_average=False):
-        return get_data(self.salinity_data, bucket, before, do_average)
+        return get_data(self.data.get_salinity_data(), bucket, before, do_average)
 
     def get_oxygen_data(self, bucket, before=None, do_average=False):
-        return get_data(self.oxygen_data, bucket, before, do_average)
+        return get_data(self.data.get_oxygen_data(), bucket, before, do_average)
 
     def get_temperature_outliers(self, bucket="all", before=None):
-        return get_outliers(self.temperature_data, bucket, before)
+        return get_outliers(self.data.get_temperature_data(), bucket, before)
 
     def get_salinity_outliers(self, bucket="all", before=None):
-        return get_outliers(self.salinity_data, bucket, before)
+        return get_outliers(self.data.get_salinity_data(), bucket, before)
 
     def get_oxygen_outliers(self, bucket="all", before=None):
-        return get_outliers(self.oxygen_data, bucket, before)
+        return get_outliers(self.data.get_oxygen_data(), bucket, before)
 
     def has_temperature_data(self):
-        return len(self.temperature_data) > 0
+        return len(self.data.get_temperature_data()) > 0
 
     def has_salinity_data(self):
-        return len(self.salinity_data) > 0
+        return len(self.data.get_salinity_data()) > 0
 
     def has_oxygen_data(self):
-        return len(self.oxygen_data) > 0
+        return len(self.data.get_oxygen_data()) > 0
 
     def has_data_from(self, file_name):
         return os.path.basename(file_name).lower() in self.used_files
 
     def get_station_data(self, before=None):
+        data = self.data.get_temperature_data()
         temperature_data = (
-            filter(lambda x: x.time.year < before.year, self.temperature_data)
+            filter(lambda x: x.time.year < before.year, data)
             if before is not None
-            else self.temperature_data
+            else data
         )
+        data = self.data.get_salinity_data()
         salinity_data = (
-            filter(lambda x: x.time.year < before.year, self.salinity_data)
+            filter(lambda x: x.time.year < before.year, data)
             if before is not None
-            else self.salinity_data
+            else data
         )
+        data = self.data.get_oxygen_data()
         oxygen_data = (
-            filter(lambda x: x.time.year < before.year, self.oxygen_data)
+            filter(lambda x: x.time.year < before.year, data)
             if before is not None
-            else self.oxygen_data
+            else data
         )
         stations = {}
         for datum in itertools.chain(temperature_data, salinity_data, oxygen_data):
@@ -600,6 +591,11 @@ class Inlet(object):
                     )
                     once[1] = True
                 datum = numpy.nan
+            if math.isnan(datum):
+                if not once[2]:
+                    logging.warning(f"Data from {filename} has NaN data, ignoring")
+                    once[2] = True
+                continue
             if self.is_shallow(d):
                 category = SHALLOW
             elif self.is_middle(d):
@@ -611,7 +607,7 @@ class Inlet(object):
             if not is_acceptable_quality(q):
                 category = IGNORE
             out.append(
-                InletData(
+                inlet_data.InletData(
                     get_datetime(t),
                     category,
                     d,
@@ -687,10 +683,10 @@ class Inlet(object):
         )
 
         placeholder = -99
-        assumed_quality = 1 # assume good for netCDF data
+        assumed_quality = 1  # assume good for netCDF data
 
         if temperature is not None:
-            self.temperature_data.extend(
+            self.data.add_temperature_data(
                 self.produce_data(
                     get_array(time),
                     get_array(depth),
@@ -704,7 +700,7 @@ class Inlet(object):
             )
 
         if salinity is not None:
-            self.salinity_data.extend(
+            self.data.add_salinity_data(
                 self.produce_data(
                     get_array(time),
                     get_array(depth),
@@ -719,7 +715,7 @@ class Inlet(object):
             )
 
         if oxygen is not None:
-            self.oxygen_data.extend(
+            self.data.add_oxygen_data(
                 self.produce_data(
                     get_array(time),
                     get_array(depth),
@@ -772,7 +768,7 @@ class Inlet(object):
         temperature_data = extract_data(data.data, temperature_idx, temperature_pad)
         temperature_quality = [0] * get_length(temperature_data)
         if has_quality(temperature_idx, names):
-            temperature_quality = extract_data(data.data, temperature_idx + 1, 0)
+            temperature_quality = extract_data(data.data, temperature_idx + 1, None)
 
         salinity_idx = find_column(channels, "Salinity", "PSU", "PSS-78")
         salinity_pad = get_pad_value(channel_details, salinity_idx)
@@ -781,7 +777,7 @@ class Inlet(object):
         salinity_data = extract_data(data.data, salinity_idx, salinity_pad)
         salinity_quality = [0] * get_length(salinity_data)
         if has_quality(salinity_idx, names):
-            salinity_quality = extract_data(data.data, salinity_idx + 1, 0)
+            salinity_quality = extract_data(data.data, salinity_idx + 1, None)
 
         oxygen_idx = find_column(channels, "Oxygen", "mL/L")
         oxygen_pad = get_pad_value(channel_details, oxygen_idx)
@@ -790,7 +786,7 @@ class Inlet(object):
         oxygen_data = extract_data(data.data, oxygen_idx, oxygen_pad)
         oxygen_quality = [0] * get_length(oxygen_data)
         if has_quality(oxygen_idx, names):
-            oxygen_quality = extract_data(data.data, oxygen_idx + 1, 0)
+            oxygen_quality = extract_data(data.data, oxygen_idx + 1, None)
 
         pressure_idx = find_column(channels, "Pressure", "dbar", "decibar")
         pressure_pad = get_pad_value(channel_details, pressure_idx)
@@ -834,7 +830,7 @@ class Inlet(object):
         )
 
         if temperature_data is not None:
-            self.temperature_data.extend(
+            self.data.add_temperature_data(
                 self.produce_data(
                     time,
                     depth_data,
@@ -848,7 +844,7 @@ class Inlet(object):
             )
 
         if salinity_data is not None:
-            self.salinity_data.extend(
+            self.data.add_salinity_data(
                 self.produce_data(
                     time,
                     depth_data,
@@ -863,7 +859,7 @@ class Inlet(object):
             )
 
         if oxygen_data is not None:
-            self.oxygen_data.extend(
+            self.data.add_oxygen_data(
                 self.produce_data(
                     time,
                     depth_data,
@@ -938,38 +934,38 @@ class Inlet(object):
             logging.warning("No latitude")
             latitude = math.nan
 
-        assumed_quality = 1 # assume good quality for hakai csv data
+        assumed_quality = 1  # assume good quality for hakai csv data
 
-        self.temperature_data.append(
-            InletData(
+        self.data.add_temperature_value(
+            inlet_data.InletData(
                 time=time,
                 bucket=bucket,
                 depth=depth,
-                datum=temperature,
+                value=temperature,
                 quality=assumed_quality,
                 longitude=longitude,
                 latitude=latitude,
                 filename=filename,
             )
         )
-        self.salinity_data.append(
-            InletData(
+        self.data.add_salinity_value(
+            inlet_data.InletData(
                 time=time,
                 bucket=bucket,
                 depth=depth,
-                datum=salinity,
+                value=salinity,
                 quality=assumed_quality,
                 longitude=longitude,
                 latitude=latitude,
                 filename=filename,
             )
         )
-        self.oxygen_data.append(
-            InletData(
+        self.data.add_oxygen_value(
+            inlet_data.InletData(
                 time=time,
                 bucket=bucket,
                 depth=depth,
-                datum=oxygen_ml_l,
+                value=oxygen_ml_l,
                 quality=assumed_quality,
                 longitude=longitude,
                 latitude=latitude,
@@ -981,48 +977,37 @@ class Inlet(object):
 def get_inlets(
     data_dir,
     from_saved=False,
-    from_db=False,
     skip_netcdf=False,
     inlet_names=[],
     drop_names=[],
     keep_names=[],
-):
+) -> List[Inlet]:
     inlet_list = []
-    if from_saved:
-        with open(PICKLE_NAME, mode="rb") as f:
-            inlet_list = pickle.load(f)
-    elif from_db:
-        import station_data
-
-        db = station_data.StationDb(station_data.DB_NAME)
-        for row in db.data():
-            print(row)
-    else:
-        with open("inlets.geojson") as f:
-            contents = json.load(f)["features"]
-            for content in contents:
-                name = content["properties"]["name"]
-                if len(keep_names) > 0 and not all(
-                    name_part in name for name_part in keep_names
-                ):
-                    continue
-                if len(inlet_names) > 0 and not any(
-                    name_part in name for name_part in inlet_names
-                ):
-                    continue
-                if len(drop_names) > 0 and any(
-                    name_part in name for name_part in drop_names
-                ):
-                    continue
-                boundaries = content["properties"]["boundaries"]
-                limits = (
-                    content["properties"]["limits"]
-                    if "limits" in content["properties"]
-                    else {}
-                )
-                polygon = Polygon(content["geometry"]["coordinates"][0])
-                inlet_list.append(Inlet(name, polygon, boundaries, limits))
-
+    with open("inlets.geojson") as f:
+        contents = json.load(f)["features"]
+        for content in contents:
+            name = content["properties"]["name"]
+            if len(keep_names) > 0 and not all(
+                name_part in name for name_part in keep_names
+            ):
+                continue
+            if len(inlet_names) > 0 and not any(
+                name_part in name for name_part in inlet_names
+            ):
+                continue
+            if len(drop_names) > 0 and any(
+                name_part in name for name_part in drop_names
+            ):
+                continue
+            boundaries = content["properties"]["boundaries"]
+            limits = (
+                content["properties"]["limits"]
+                if "limits" in content["properties"]
+                else {}
+            )
+            polygon = Polygon(content["geometry"]["coordinates"][0])
+            inlet_list.append(Inlet(name, polygon, boundaries, limits, not from_saved))
+    if not from_saved:
         if not skip_netcdf:
             for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
                 for item in fnmatch.filter(files, "*.nc"):
@@ -1079,6 +1064,4 @@ def get_inlets(
                         if inlet.contains(coords):
                             inlet.add_row_from_csv(row, file)
 
-        with open(PICKLE_NAME, mode="wb") as f:
-            pickle.dump(inlet_list, f)
     return inlet_list
