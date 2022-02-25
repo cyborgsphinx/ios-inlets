@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import inlets
+import itertools
 import matplotlib.pyplot as plt
 import os
 from typing import List
@@ -299,6 +300,79 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet]):
     plt.savefig(figure_path("deep-water-oxygen-annual-averages.png"))
 
 
+###################
+# Monthly functions
+###################
+
+def chart_monthly_sample(inlet: inlets.Inlet):
+    months = [
+        "padding",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ]
+    files = {
+        "January": {},
+        "February": {},
+        "March": {},
+        "April": {},
+        "May": {},
+        "June": {},
+        "July": {},
+        "August": {},
+        "September": {},
+        "October": {},
+        "November": {},
+        "December": {},
+    }
+    min_year = END.year
+    max_year = 0
+    for datum in itertools.chain(
+        inlet.data.get_temperature_data(),
+        inlet.data.get_salinity_data(),
+        inlet.data.get_oxygen_data(),
+    ):
+        year = datum.time.year
+        min_year = min(year, min_year)
+        max_year = max(year, max_year)
+        month = months[datum.time.month]
+        if year not in files[month]:
+            files[month][year] = set()
+        files[month][year].add(datum.filename)
+    year_range = max_year - min_year + 1
+    values = []
+    for _ in range(year_range):
+        values.append([0] * 12)
+    for month, d in files.items():
+        for year, filenames in d.items():
+            year_idx = year - min_year
+            month_idx = months.index(month) - 1
+            values[year_idx][month_idx] += len(filenames)
+    biggest = 0
+    for row in values:
+        biggest = max(biggest, *row)
+
+    plt.clf()
+    plt.figure(figsize=(40, 10), constrained_layout=True)
+    plt.imshow(list(map(list, zip(*values))), vmin=0, vmax=biggest, cmap="Blues")
+    plt.yticks(ticks=range(12), labels=months[1:])
+    plt.xticks(ticks=range(year_range), labels=range(min_year, max_year + 1))
+    for i, _ in enumerate(values):
+        for j, _ in enumerate(values[i]):
+            plt.text(i, j, values[i][j], ha="center", va="center", color="k")
+
+    plt.title(f"{inlet.name} Sampling frequency by month")
+    plt.savefig(figure_path(f"{normalize(inlet.name)}-monthly-sampling.png"))
+
 def main():
     parser = argparse.ArgumentParser()
     # inlet retrieval args
@@ -313,6 +387,7 @@ def main():
     parser.add_argument("-b", "--plot-buckets", action="store_true")
     parser.add_argument("-a", "--use-averages", action="store_true")
     parser.add_argument("-A", "--plot-annual", action="store_true")
+    parser.add_argument("-m", "--plot-monthly", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(
         args.data,
@@ -330,6 +405,9 @@ def main():
         chart_temperature_anomalies(inlet_list)
         chart_salinity_anomalies(inlet_list)
         chart_oxygen_anomalies(inlet_list)
+    elif args.plot_monthly:
+        for inlet in inlet_list:
+            chart_monthly_sample(inlet)
     elif args.plot_buckets:
         do_chart_all(
             inlet_list,
