@@ -1070,3 +1070,16 @@ def get_inlets(
                             inlet.add_row_from_csv(row, file)
 
     return inlet_list
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
+    args = parser.parse_args()
+    print("Preparing database")
+    get_inlets(args.data, from_saved=False, skip_netcdf=False)
+
+
+if __name__ == "__main__":
+    main()
