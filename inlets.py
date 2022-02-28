@@ -42,7 +42,7 @@ def is_in_bounds(val, lower, upper):
 
 
 def get_datetime(d):
-    return pandas.Timestamp(d).to_pydatetime()
+    return pandas.to_datetime(d).to_pydatetime()
 
 
 def reinsert_nan(data, placeholder, length=None):
@@ -600,6 +600,10 @@ class Inlet(object):
                 # if a file winds up with no data because all the data was NaN, don't warn that it wasn't used
                 warn_unused = False
                 continue
+            t = get_datetime(t)
+            if t.replace(tzinfo=None) > datetime.datetime.now():
+                logging.warning(f"Data from {filename} is from the future: {t}")
+                continue
             if self.is_shallow(d):
                 category = SHALLOW
             elif self.is_middle(d):
@@ -612,7 +616,7 @@ class Inlet(object):
                 category = IGNORE
             out.append(
                 inlet_data.InletData(
-                    get_datetime(t),
+                    t,
                     category,
                     d,
                     datum,
