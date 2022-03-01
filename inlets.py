@@ -24,10 +24,6 @@ ALL = "all"
 EXCEPTIONALLY_BIG = 9.9e36
 
 
-def db_name(inlet_name: str):
-    return os.path.join("data", inlet_name.lower().replace(" ", "_") + ".db")
-
-
 def get_length(arr):
     if arr is None:
         return 0
@@ -175,12 +171,6 @@ def extend_arr(arr, length):
     return numpy.full(length, arr.item()) if arr_length == 1 else arr
 
 
-def get_units(info, index):
-    if index < 0 or info is None or len(info) == 0:
-        return ""
-    return info[index].units
-
-
 def get_pad_value(info, index):
     if index < 0 or info is None or len(info) == 0:
         return None
@@ -199,14 +189,6 @@ def is_acceptable_quality(quality_value):
     # 2 is "inconsistent with climatology" in the vast majority of observed cases
     bad_qualities = [2, 3, 4]
     return quality_value not in bad_qualities
-
-
-def get_int(value):
-    num = to_float(value)
-    if numpy.isnan(num):
-        return None
-    else:
-        return int(num)
 
 
 def extract_data(source, index, replace):
