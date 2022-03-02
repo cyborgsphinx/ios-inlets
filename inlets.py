@@ -1060,6 +1060,7 @@ def get_inlets(
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     args = parser.parse_args()

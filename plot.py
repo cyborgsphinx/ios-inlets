@@ -14,6 +14,7 @@ INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s"]
 # Utility functions
 ###################
 
+
 def normalize(string: str):
     return string.strip().lower().replace(" ", "-")
 
@@ -139,9 +140,11 @@ def do_chart(
     average = "-average" if use_averages else ""
     plt.savefig(figure_path(f"{normalize(inlet.name)}-{kind}{limits}{average}.png"))
 
+
 #####################
 # All inlet functions
 #####################
+
 
 def chart_all_data(times, data, label=""):
     plt.scatter(times, data, label=label)
@@ -205,9 +208,11 @@ def do_chart_all(inlet_list, kind, bucket, chart_all_fn):
     plt.legend()
     plt.savefig(figure_path(f"{bounds}-{kind}-{names}.png"))
 
+
 ############################
 # Annual averaging functions
 ############################
+
 
 def do_annual_work(inlet_list, data_fn, averaging_fn):
     plt.clf()
@@ -234,7 +239,7 @@ def do_annual_work_parts(inlet_list, data_fn, averaging_fn, y_label, title):
     stride = len(INLET_LINES)
     while offset < len(inlet_list):
         loops += 1
-        do_annual_work(inlet_list[offset:offset+stride], data_fn, averaging_fn)
+        do_annual_work(inlet_list[offset : offset + stride], data_fn, averaging_fn)
         offset += stride
         plt.ylabel(y_label)
         plt.title(title)
@@ -258,17 +263,32 @@ def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn, y_label, title):
 
 def chart_temperature_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing temperature anomaly plots")
-    chart_anomalies(inlet_list, lambda inlet: inlet.get_temperature_data(inlets.ALL), "Temperature (C)", "Deep Water Temperature Anomalies")
+    chart_anomalies(
+        inlet_list,
+        lambda inlet: inlet.get_temperature_data(inlets.ALL),
+        "Temperature (C)",
+        "Deep Water Temperature Anomalies",
+    )
 
 
 def chart_salinity_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing salinity anomaly plots")
-    chart_anomalies(inlet_list, lambda inlet: inlet.get_salinity_data(inlets.ALL), "Salinity (PSU)", "Deep Water Salinity Anomalies")
+    chart_anomalies(
+        inlet_list,
+        lambda inlet: inlet.get_salinity_data(inlets.ALL),
+        "Salinity (PSU)",
+        "Deep Water Salinity Anomalies",
+    )
 
 
 def chart_oxygen_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing oxygen anomaly plot")
-    chart_anomalies(inlet_list, lambda inlet: inlet.get_oxygen_data(inlets.ALL), "Oxygen (mL/L)", "Deep Water Dissolved Oxygen Anomalies")
+    chart_anomalies(
+        inlet_list,
+        lambda inlet: inlet.get_oxygen_data(inlets.ALL),
+        "Oxygen (mL/L)",
+        "Deep Water Dissolved Oxygen Anomalies",
+    )
 
 
 def do_chart_annual_averages(inlet_list: List[inlets.Inlet], data_fn, y_label, title):
@@ -277,22 +297,38 @@ def do_chart_annual_averages(inlet_list: List[inlets.Inlet], data_fn, y_label, t
 
 def chart_annual_temperature_averages(inlet_list: List[inlets.Inlet]):
     print("Producing annual temperature plots")
-    do_chart_annual_averages(inlet_list, lambda inlet: inlet.get_temperature_data(inlets.ALL), "Temperature (C)", "Deep Water Temperature Annual Averages")
+    do_chart_annual_averages(
+        inlet_list,
+        lambda inlet: inlet.get_temperature_data(inlets.ALL),
+        "Temperature (C)",
+        "Deep Water Temperature Annual Averages",
+    )
 
 
 def chart_annual_salinity_averages(inlet_list: List[inlets.Inlet]):
     print("Producing annual salinity plots")
-    do_chart_annual_averages(inlet_list, lambda inlet: inlet.get_salinity_data(inlets.ALL), "Salinity (PSU)", "Deep Water Salinity Annual Averages")
+    do_chart_annual_averages(
+        inlet_list,
+        lambda inlet: inlet.get_salinity_data(inlets.ALL),
+        "Salinity (PSU)",
+        "Deep Water Salinity Annual Averages",
+    )
 
 
 def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet]):
     print("Producing annual oxygen plots")
-    do_chart_annual_averages(inlet_list, lambda inlet: inlet.get_oxygen_data(inlets.ALL), "Oxygen (mL/L)", "Deep Water Dissolved Oxygen Annual Averages")
+    do_chart_annual_averages(
+        inlet_list,
+        lambda inlet: inlet.get_oxygen_data(inlets.ALL),
+        "Oxygen (mL/L)",
+        "Deep Water Dissolved Oxygen Annual Averages",
+    )
 
 
 ###################
 # Monthly functions
 ###################
+
 
 def chart_monthly_sample(inlet: inlets.Inlet):
     months = [
@@ -362,6 +398,7 @@ def chart_monthly_sample(inlet: inlets.Inlet):
 
     plt.title(f"{inlet.name} Sampling frequency by month")
     plt.savefig(figure_path(f"{normalize(inlet.name)}-monthly-sampling.png"))
+
 
 def main():
     parser = argparse.ArgumentParser()
