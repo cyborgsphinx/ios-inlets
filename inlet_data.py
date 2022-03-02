@@ -60,20 +60,19 @@ class InletDb:
     def add_temperature_value(self, value: InletData):
         try:
             self.__add_value({"kind": "temperature", **value.as_dict()})
-        except sqlite3.IntegrityError as e:
+        except sqlite3.IntegrityError:
             logging.exception(
-                f"Integrity error inserting temperature data ({value}) into database for {self.name}:\n{e}"
+                f"Integrity error inserting temperature data ({value}) into database for {self.name}"
             )
 
     def add_temperature_data(self, data: List[InletData]):
         try:
             self.__add_data(set(data), {"kind": "temperature"})
-        except sqlite3.IntegrityError as e:
+        except sqlite3.IntegrityError:
             filename = data[0].filename
             logging.exception(
-                f"Integrity error inserting temperature data from {filename} into database for {self.name}:\n{e}"
+                f"Integrity error inserting temperature data from {filename} into database for {self.name}"
             )
-            logging.exception(f"{data}")
 
     def get_temperature_data(self) -> List[InletData]:
         return self.__get_data("temperature")
@@ -81,20 +80,19 @@ class InletDb:
     def add_salinity_value(self, value: InletData):
         try:
             self.__add_value({"kind": "salinity", **value.as_dict()})
-        except sqlite3.IntegrityError as e:
+        except sqlite3.IntegrityError:
             logging.exception(
-                f"Integrity error inserting salinity data ({value}) into database for {self.name}:\n{e}"
+                f"Integrity error inserting salinity data ({value}) into database for {self.name}"
             )
 
     def add_salinity_data(self, data: List[InletData]):
         try:
             self.__add_data(set(data), {"kind": "salinity"})
-        except sqlite3.IntegrityError as e:
+        except sqlite3.IntegrityError:
             filename = data[0].filename
             logging.exception(
-                f"Integrity error inserting salinity data from {filename} into database for {self.name}:\n{e}"
+                f"Integrity error inserting salinity data from {filename} into database for {self.name}"
             )
-            logging.exception(f"{data}")
 
     def get_salinity_data(self) -> List[InletData]:
         return self.__get_data("salinity")
@@ -102,20 +100,19 @@ class InletDb:
     def add_oxygen_value(self, value: InletData):
         try:
             self.__add_value({"kind": "oxygen", **value.as_dict()})
-        except sqlite3.IntegrityError as e:
+        except sqlite3.IntegrityError:
             logging.exception(
-                f"Integrity error inserting oxygen data ({value}) into database for {self.name}:\n{e}"
+                f"Integrity error inserting oxygen data ({value}) into database for {self.name}"
             )
 
     def add_oxygen_data(self, data: List[InletData]):
         try:
             self.__add_data(set(data), {"kind": "oxygen"})
-        except sqlite3.IntegrityError as e:
+        except sqlite3.IntegrityError:
             filename = data[0].filename
             logging.exception(
-                f"Integrity error inserting oxygen data from {filename} into database for {self.name}:\n{e}"
+                f"Integrity error inserting oxygen data from {filename} into database for {self.name}"
             )
-            logging.exception(f"{data}")
 
     def get_oxygen_data(self) -> List[InletData]:
         return self.__get_data("oxygen")
