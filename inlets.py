@@ -555,7 +555,7 @@ class Inlet(object):
             )
 
         out = []
-        once = [False] * 3
+        once = [False] * 2
         warn_unused = True
         for t, d, datum, q in zip(times, depths, data, quality):
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
@@ -576,9 +576,7 @@ class Inlet(object):
                     once[1] = True
                 datum = numpy.nan
             if math.isnan(datum):
-                if not once[2]:
-                    logging.warning(f"Data from {filename} has NaN data, ignoring")
-                    once[2] = True
+                # no warning since NaN data is incredibly common
                 # if a file winds up with no data because all the data was NaN, don't warn that it wasn't used
                 warn_unused = False
                 continue
