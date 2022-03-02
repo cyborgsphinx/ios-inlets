@@ -1010,7 +1010,7 @@ def get_inlets(
                                 logging.exception(f"Exception occurred in {file_name}")
                                 raise
 
-        shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "adcp", "cur"]
+        shell_exts = ["bot", "che", "ctd", "ubc", "med", "xbt", "cur"]
         # make a list of all elements in shell_exts followed by their str.upper() versions
         exts = [
             item
