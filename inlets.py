@@ -16,11 +16,6 @@ from typing import Dict, List
 import xarray
 import ios_shell.shell as ios
 
-SHALLOW = "shallow"
-MIDDLE = "middle"
-DEEP = "deep"
-IGNORE = "ignore"
-ALL = "all"
 EXCEPTIONALLY_BIG = 9.9e36
 
 
@@ -389,11 +384,10 @@ def convert_oxygen(
         return None, False, False
 
 
-def get_data(col, bucket, before=None, do_average=False):
+def get_data(col, before=None, do_average=False):
     data = [
         [datum.time, datum.value]
         for datum in col
-        if bucket == ALL and datum.bucket != IGNORE or datum.bucket == bucket
     ]
     if before is not None:
         data = [[t, d] for t, d in data if t.year < before.year]
@@ -413,7 +407,7 @@ def get_outliers(col, bucket="all", before=None):
     data = [
         datum
         for datum in col
-        if bucket == ALL and datum.bucket != IGNORE or datum.bucket == bucket
+        if bucket == inlet_data.ALL and datum.bucket != inlet_data.IGNORE or datum.bucket == bucket
     ]
     if before is not None:
         data = [datum for datum in data if datum.time.year < before.year]
@@ -446,49 +440,49 @@ class Inlet(object):
             self.data = inlet_data.InletDb(name, clear_old_data)
 
     def get_temperature_data(self, bucket, before=None, do_average=False):
-        return get_data(self.data.get_temperature_data(), bucket, before, do_average)
+        return get_data(self.data.get_temperature_data(bucket, average=do_average), before, do_average)
 
     def get_salinity_data(self, bucket, before=None, do_average=False):
-        return get_data(self.data.get_salinity_data(), bucket, before, do_average)
+        return get_data(self.data.get_salinity_data(bucket, average=do_average), before, do_average)
 
     def get_oxygen_data(self, bucket, before=None, do_average=False):
-        return get_data(self.data.get_oxygen_data(), bucket, before, do_average)
+        return get_data(self.data.get_oxygen_data(bucket, average=do_average), before, do_average)
 
-    def get_temperature_outliers(self, bucket="all", before=None):
-        return get_outliers(self.data.get_temperature_data(), bucket, before)
+    def get_temperature_outliers(self, bucket=inlet_data.USED, before=None):
+        return get_outliers(self.data.get_temperature_data(bucket), bucket, before)
 
-    def get_salinity_outliers(self, bucket="all", before=None):
-        return get_outliers(self.data.get_salinity_data(), bucket, before)
+    def get_salinity_outliers(self, bucket=inlet_data.USED, before=None):
+        return get_outliers(self.data.get_salinity_data(bucket), bucket, before)
 
-    def get_oxygen_outliers(self, bucket="all", before=None):
-        return get_outliers(self.data.get_oxygen_data(), bucket, before)
+    def get_oxygen_outliers(self, bucket=inlet_data.USED, before=None):
+        return get_outliers(self.data.get_oxygen_data(bucket), bucket, before)
 
     def has_temperature_data(self):
-        return len(self.data.get_temperature_data()) > 0
+        return len(self.data.get_temperature_data(inlet_data.ALL)) > 0
 
     def has_salinity_data(self):
-        return len(self.data.get_salinity_data()) > 0
+        return len(self.data.get_salinity_data(inlet_data.ALL)) > 0
 
     def has_oxygen_data(self):
-        return len(self.data.get_oxygen_data()) > 0
+        return len(self.data.get_oxygen_data(inlet_data.ALL)) > 0
 
     def has_data_from(self, file_name):
         return os.path.basename(file_name).lower() in self.used_files
 
     def get_station_data(self, before=None):
-        data = self.data.get_temperature_data()
+        data = self.data.get_temperature_data(inlet_data.ALL)
         temperature_data = (
             filter(lambda x: x.time.year < before.year, data)
             if before is not None
             else data
         )
-        data = self.data.get_salinity_data()
+        data = self.data.get_salinity_data(inlet_data.ALL)
         salinity_data = (
             filter(lambda x: x.time.year < before.year, data)
             if before is not None
             else data
         )
-        data = self.data.get_oxygen_data()
+        data = self.data.get_oxygen_data(inlet_data.ALL)
         oxygen_data = (
             filter(lambda x: x.time.year < before.year, data)
             if before is not None
@@ -585,15 +579,15 @@ class Inlet(object):
                 logging.warning(f"Data from {filename} is from the future: {t}")
                 continue
             if self.is_shallow(d):
-                category = SHALLOW
+                category = inlet_data.SHALLOW
             elif self.is_middle(d):
-                category = MIDDLE
+                category = inlet_data.MIDDLE
             elif self.is_deep(d):
-                category = DEEP
+                category = inlet_data.DEEP
             else:
-                category = IGNORE
+                category = inlet_data.IGNORE
             if not is_acceptable_quality(q):
-                category = IGNORE
+                category = inlet_data.IGNORE
             out.append(
                 inlet_data.InletData(
                     t,
@@ -881,17 +875,17 @@ class Inlet(object):
         if len(depth) > 0:
             depth = float(depth)
             if self.is_shallow(depth):
-                bucket = SHALLOW
+                bucket = inlet_data.SHALLOW
             elif self.is_middle(depth):
-                bucket = MIDDLE
+                bucket = inlet_data.MIDDLE
             elif self.is_deep(depth):
-                bucket = DEEP
+                bucket = inlet_data.DEEP
             else:
-                bucket = IGNORE
+                bucket = inlet_data.IGNORE
         else:
             logging.warning("No depth")
             depth = math.nan
-            bucket = IGNORE
+            bucket = inlet_data.IGNORE
 
         if len(temperature) > 0:
             temperature = float(temperature)

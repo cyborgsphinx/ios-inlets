@@ -3,11 +3,17 @@ import datetime
 import logging
 import os
 import sqlite3
-from typing import Any, Dict, List, Set
+from typing import List
 
 
 sqlite3.paramstyle = "named"
 DB_NAME = os.path.join("data", "inlet_data.db")
+SHALLOW = "shallow"
+MIDDLE = "middle"
+DEEP = "deep"
+IGNORE = "ignore"
+ALL = "all"
+USED = "used"
 
 
 def _table_name(inlet_name: str) -> str:
@@ -42,6 +48,23 @@ class InletData:
         }
 
 
+def _averaged(data: List[InletData]) -> List[InletData]:
+    """Perform daily vertical averaging inside depth categories."""
+    freqs = {}
+    for datum in data:
+        filename = datum.filename
+        date = datum.time.date()
+        key = (filename, date)
+        if key not in freqs:
+            freqs[key] = (0, 0)
+        total, count = freqs[key]
+        freqs[key] = (total + datum.value, count + 1)
+    return [
+        InletData(d, USED, 0, total / count, 0, 0, 0, fn)
+        for (fn, d), (total, count) in freqs.items()
+    ]
+
+
 class InletDb:
     def __init__(self, inlet_name: str, clear: bool = False, db_name: str = DB_NAME):
         self.name = _table_name(inlet_name)
@@ -59,7 +82,7 @@ class InletDb:
 
     def add_temperature_value(self, value: InletData):
         try:
-            self.__add_value({"kind": "temperature", **value.as_dict()})
+            self.__add_value(value, "temperature")
         except sqlite3.IntegrityError:
             logging.exception(
                 f"Integrity error inserting temperature data ({value}) into database for {self.name}"
@@ -67,19 +90,23 @@ class InletDb:
 
     def add_temperature_data(self, data: List[InletData]):
         try:
-            self.__add_data(set(data), {"kind": "temperature"})
+            self.__add_data(data, "temperature")
         except sqlite3.IntegrityError:
             filename = data[0].filename
             logging.exception(
                 f"Integrity error inserting temperature data from {filename} into database for {self.name}"
             )
 
-    def get_temperature_data(self) -> List[InletData]:
-        return self.__get_data("temperature")
+    def get_temperature_data(self, bucket, average: bool = False) -> List[InletData]:
+        data = self.__get_data("temperature", bucket)
+        if average:
+            return _averaged(data)
+        else:
+            return data
 
     def add_salinity_value(self, value: InletData):
         try:
-            self.__add_value({"kind": "salinity", **value.as_dict()})
+            self.__add_value(value, "salinity")
         except sqlite3.IntegrityError:
             logging.exception(
                 f"Integrity error inserting salinity data ({value}) into database for {self.name}"
@@ -87,19 +114,23 @@ class InletDb:
 
     def add_salinity_data(self, data: List[InletData]):
         try:
-            self.__add_data(set(data), {"kind": "salinity"})
+            self.__add_data(data, "salinity")
         except sqlite3.IntegrityError:
             filename = data[0].filename
             logging.exception(
                 f"Integrity error inserting salinity data from {filename} into database for {self.name}"
             )
 
-    def get_salinity_data(self) -> List[InletData]:
-        return self.__get_data("salinity")
+    def get_salinity_data(self, bucket, average: bool = False) -> List[InletData]:
+        data = self.__get_data("salinity", bucket)
+        if average:
+            return _averaged(data)
+        else:
+            return data
 
     def add_oxygen_value(self, value: InletData):
         try:
-            self.__add_value({"kind": "oxygen", **value.as_dict()})
+            self.__add_value(value, "oxygen")
         except sqlite3.IntegrityError:
             logging.exception(
                 f"Integrity error inserting oxygen data ({value}) into database for {self.name}"
@@ -107,23 +138,26 @@ class InletDb:
 
     def add_oxygen_data(self, data: List[InletData]):
         try:
-            self.__add_data(set(data), {"kind": "oxygen"})
+            self.__add_data(data, "oxygen")
         except sqlite3.IntegrityError:
             filename = data[0].filename
             logging.exception(
                 f"Integrity error inserting oxygen data from {filename} into database for {self.name}"
             )
 
-    def get_oxygen_data(self) -> List[InletData]:
-        return self.__get_data("oxygen")
+    def get_oxygen_data(self, bucket, average: bool = False) -> List[InletData]:
+        data = self.__get_data("oxygen", bucket)
+        if average:
+            return _averaged(data)
+        else:
+            return data
 
-    def __add_value(self, value: Dict[str, Any]):
+    def __add_value(self, value: InletData, kind: str):
         with self.connection:
             self.connection.execute(
                 f"""
                 insert into {self.name}
                 values (
-                    :name,
                     :kind,
                     :filename,
                     :latitude,
@@ -136,16 +170,15 @@ class InletDb:
                     :computed,
                     :assumed_density
                 )""",
-                {"name": self.name, **value},
+                {"kind": kind, **value.as_dict()},
             )
 
-    def __add_data(self, data: Set[InletData], dict: Dict[str, Any]):
+    def __add_data(self, data: List[InletData], kind: str):
         with self.connection:
             self.connection.executemany(
                 f"""
                 insert into {self.name}
                 values (
-                    :name,
                     :kind,
                     :filename,
                     :latitude,
@@ -158,10 +191,31 @@ class InletDb:
                     :computed,
                     :assumed_density
                 )""",
-                ({"name": self.name, **dict, **datum.as_dict()} for datum in data),
+                ({"kind": kind, **datum.as_dict()} for datum in data),
             )
 
-    def __get_data(self, kind: str) -> List[InletData]:
+    def __get_data(self, kind: str, bucket: str) -> List[InletData]:
+        if bucket == ALL:
+            cursor = self.connection.execute(
+                f"""select * from {self.name}
+                where kind=:kind
+                """,
+                {"kind": kind},
+            )
+        elif bucket == USED:
+            cursor = self.connection.execute(
+                f"""select * from {self.name}
+                where kind=:kind and bucket!=:bucket
+                """,
+                {"kind": kind, "bucket": IGNORE}
+            )
+        else:
+            cursor = self.connection.execute(
+                f"""select * from {self.name}
+                where kind=:kind and bucket=:bucket
+                """,
+                {"kind": kind, "bucket": bucket},
+            )
         return [
             InletData(
                 filename=row["filename"],
@@ -175,12 +229,7 @@ class InletDb:
                 computed=(row["computed"] > 0),
                 assumed_density=(row["assumed_density"] > 0),
             )
-            for row in self.connection.execute(
-                f"""select * from {self.name}
-                where name=:name and kind=:kind
-                """,
-                {"name": self.name, "kind": kind},
-            )
+            for row in cursor
         ]
 
     def __ensure_data_table(self):
@@ -189,7 +238,6 @@ class InletDb:
                 self.connection.execute(
                     f"""
                     create table {self.name} (
-                        name text not null,
                         kind text not null,
                         filename text not null,
                         latitude real not null,

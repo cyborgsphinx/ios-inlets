@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import inlet_data
 import inlets
 import itertools
 import matplotlib.pyplot as plt
@@ -31,9 +32,9 @@ def figure_path(filename: str):
 def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
-    shallow_time, shallow_data = data_fn(inlet, inlets.SHALLOW)
-    middle_time, middle_data = data_fn(inlet, inlets.MIDDLE)
-    deep_time, deep_data = data_fn(inlet, inlets.DEEP)
+    shallow_time, shallow_data = data_fn(inlet, inlet_data.SHALLOW)
+    middle_time, middle_data = data_fn(inlet, inlet_data.MIDDLE)
+    deep_time, deep_data = data_fn(inlet, inlet_data.DEEP)
     if len(limits) > 1:
         shallow_time, shallow_data = zip(
             *[
@@ -265,7 +266,7 @@ def chart_temperature_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing temperature anomaly plots")
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_temperature_data(inlets.ALL),
+        lambda inlet: inlet.get_temperature_data(inlet_data.USED, do_average=True),
         "Temperature (C)",
         "Deep Water Temperature Anomalies",
     )
@@ -275,7 +276,7 @@ def chart_salinity_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing salinity anomaly plots")
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_salinity_data(inlets.ALL),
+        lambda inlet: inlet.get_salinity_data(inlet_data.USED, do_average=True),
         "Salinity (PSU)",
         "Deep Water Salinity Anomalies",
     )
@@ -285,7 +286,7 @@ def chart_oxygen_anomalies(inlet_list: List[inlets.Inlet]):
     print("Producing oxygen anomaly plot")
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_oxygen_data(inlets.ALL),
+        lambda inlet: inlet.get_oxygen_data(inlet_data.USED, do_average=True),
         "Oxygen (mL/L)",
         "Deep Water Dissolved Oxygen Anomalies",
     )
@@ -299,7 +300,7 @@ def chart_annual_temperature_averages(inlet_list: List[inlets.Inlet]):
     print("Producing annual temperature plots")
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_temperature_data(inlets.ALL),
+        lambda inlet: inlet.get_temperature_data(inlet_data.USED, do_average=True),
         "Temperature (C)",
         "Deep Water Temperature Annual Averages",
     )
@@ -309,7 +310,7 @@ def chart_annual_salinity_averages(inlet_list: List[inlets.Inlet]):
     print("Producing annual salinity plots")
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_salinity_data(inlets.ALL),
+        lambda inlet: inlet.get_salinity_data(inlet_data.USED, do_average=True),
         "Salinity (PSU)",
         "Deep Water Salinity Annual Averages",
     )
@@ -319,7 +320,7 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet]):
     print("Producing annual oxygen plots")
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_oxygen_data(inlets.ALL),
+        lambda inlet: inlet.get_oxygen_data(inlet_data.USED, do_average=True),
         "Oxygen (mL/L)",
         "Deep Water Dissolved Oxygen Annual Averages",
     )
@@ -439,27 +440,27 @@ def main():
         do_chart_all(
             inlet_list,
             "temperature",
-            inlets.SHALLOW,
+            inlet_data.SHALLOW,
             chart_all_temperature,
         )
         do_chart_all(
             inlet_list,
             "temperature",
-            inlets.MIDDLE,
+            inlet_data.MIDDLE,
             chart_all_temperature,
         )
         do_chart_all(
             inlet_list,
             "temperature",
-            inlets.DEEP,
+            inlet_data.DEEP,
             chart_all_temperature,
         )
-        do_chart_all(inlet_list, "salinity", inlets.SHALLOW, chart_all_salinity)
-        do_chart_all(inlet_list, "salinity", inlets.MIDDLE, chart_all_salinity)
-        do_chart_all(inlet_list, "salinity", inlets.DEEP, chart_all_salinity)
-        do_chart_all(inlet_list, "oxygen", inlets.SHALLOW, chart_all_oxygen)
-        do_chart_all(inlet_list, "oxygen", inlets.MIDDLE, chart_all_oxygen)
-        do_chart_all(inlet_list, "oxygen", inlets.DEEP, chart_all_oxygen)
+        do_chart_all(inlet_list, "salinity", inlet_data.SHALLOW, chart_all_salinity)
+        do_chart_all(inlet_list, "salinity", inlet_data.MIDDLE, chart_all_salinity)
+        do_chart_all(inlet_list, "salinity", inlet_data.DEEP, chart_all_salinity)
+        do_chart_all(inlet_list, "oxygen", inlet_data.SHALLOW, chart_all_oxygen)
+        do_chart_all(inlet_list, "oxygen", inlet_data.MIDDLE, chart_all_oxygen)
+        do_chart_all(inlet_list, "oxygen", inlet_data.DEEP, chart_all_oxygen)
     else:
         for inlet in inlet_list:
             do_chart(
