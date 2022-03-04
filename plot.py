@@ -431,6 +431,13 @@ def main():
         chart_oxygen_anomalies(inlet_list)
     elif args.plot_monthly:
         for inlet in inlet_list:
+            do_chart(
+                inlet,
+                "samples",
+                not args.no_limits,
+                chart_stations,
+                args.use_averages,
+            )
             chart_monthly_sample(inlet)
     elif args.plot_buckets:
         do_chart_all(
@@ -478,13 +485,6 @@ def main():
                 "oxygen",
                 not args.no_limits,
                 chart_oxygen_data,
-                args.use_averages,
-            )
-            do_chart(
-                inlet,
-                "samples",
-                not args.no_limits,
-                chart_stations,
                 args.use_averages,
             )
     plt.close()
