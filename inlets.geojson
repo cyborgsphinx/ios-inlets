@@ -168,7 +168,7 @@
       "properties": {
         "name": "Rivers Inlet",
         "area": "North Mainland Coast",
-        "boundaries": [100, 200, 300],
+        "boundaries": [150, 200, 250],
         "limits": {
         }
       },
