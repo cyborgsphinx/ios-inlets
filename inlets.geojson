@@ -190,7 +190,7 @@
       "properties": {
         "name": "Douglas Channel",
         "area": "North Mainland Coast",
-        "boundaries": [200, 400, 600],
+        "boundaries": [250, 350, 450],
         "limits": {
           "salinity": [29, 36]
         }
