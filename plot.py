@@ -235,16 +235,12 @@ def do_annual_work(inlet_list, data_fn, averaging_fn):
 
 
 def do_annual_work_parts(inlet_list, data_fn, averaging_fn, y_label, title):
-    offset = 0
-    loops = 0
-    stride = len(INLET_LINES)
-    while offset < len(inlet_list):
-        loops += 1
-        do_annual_work(inlet_list[offset : offset + stride], data_fn, averaging_fn)
-        offset += stride
+    areas = set(inlet.area for inlet in inlet_list)
+    for area in areas:
+        do_annual_work([inlet for inlet in inlet_list if inlet.area == area], data_fn, averaging_fn)
         plt.ylabel(y_label)
-        plt.title(title)
-        plt.savefig(figure_path(f"{normalize(title)}-part{loops}.png"))
+        plt.title(f"{title} - {area}")
+        plt.savefig(figure_path(f"{normalize(title)}-{normalize(area)}.png"))
 
 
 def annual_averaging(totals, _data):
@@ -364,9 +360,9 @@ def chart_monthly_sample(inlet: inlets.Inlet):
     min_year = END.year
     max_year = 0
     for datum in itertools.chain(
-        inlet.data.get_temperature_data(),
-        inlet.data.get_salinity_data(),
-        inlet.data.get_oxygen_data(),
+        inlet.data.get_temperature_data(inlet_data.ALL),
+        inlet.data.get_salinity_data(inlet_data.ALL),
+        inlet.data.get_oxygen_data(inlet_data.ALL),
     ):
         year = datum.time.year
         min_year = min(year, min_year)

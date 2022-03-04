@@ -418,6 +418,7 @@ class Inlet(object):
     def __init__(
         self,
         name: str,
+        area: str,
         polygon: Polygon,
         boundaries: List[int],
         limits: Dict[str, List[float]],
@@ -425,6 +426,7 @@ class Inlet(object):
         db_name=None,
     ):
         self.name = name
+        self.area = area
         self.shallow_bounds = (boundaries[0], boundaries[1])
         self.middle_bounds = (boundaries[1], boundaries[2])
         self.deep_bounds = (
@@ -982,6 +984,7 @@ def get_inlets(
                 name_part in name for name_part in drop_names
             ):
                 continue
+            area = content["properties"]["area"]
             boundaries = content["properties"]["boundaries"]
             limits = (
                 content["properties"]["limits"]
@@ -989,7 +992,7 @@ def get_inlets(
                 else {}
             )
             polygon = Polygon(content["geometry"]["coordinates"][0])
-            inlet_list.append(Inlet(name, polygon, boundaries, limits, not from_saved))
+            inlet_list.append(Inlet(name, area, polygon, boundaries, limits, not from_saved))
     if not from_saved:
         if not skip_netcdf:
             for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
