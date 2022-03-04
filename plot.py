@@ -3,6 +3,7 @@ import datetime
 import inlet_data
 import inlets
 import itertools
+import matplotlib
 import matplotlib.pyplot as plt
 import os
 from typing import List
@@ -385,16 +386,32 @@ def chart_monthly_sample(inlet: inlets.Inlet):
         biggest = max(biggest, *row)
 
     plt.clf()
+    matplotlib.rc("axes", titlesize=25)
+    matplotlib.rc("xtick", labelsize=20)
+    matplotlib.rc("ytick", labelsize=20)
     plt.figure(figsize=(40, 10), constrained_layout=True)
     plt.imshow(list(map(list, zip(*values))), vmin=0, vmax=biggest, cmap="Blues")
     plt.yticks(ticks=range(12), labels=months[1:])
-    plt.xticks(ticks=range(year_range), labels=range(min_year, max_year + 1))
+    plt.xticks(
+        ticks=range(0, year_range, 2),
+        labels=range(min_year, max_year + 1, 2),
+        rotation=45,
+        ha="right",
+        rotation_mode="anchor",
+    )
     for i, _ in enumerate(values):
         for j, _ in enumerate(values[i]):
-            plt.text(i, j, values[i][j], ha="center", va="center", color="k")
+            plt.text(i, j, values[i][j], ha="center", va="center", color="k", fontsize="large")
 
-    plt.title(f"{inlet.name} Sampling frequency by month")
+    plt.title(f"{inlet.name} Sampling Frequency by Month")
+    plt.axis("tight")
+    plt.colorbar()
     plt.savefig(figure_path(f"{normalize(inlet.name)}-monthly-sampling.png"))
+
+    # reset values
+    matplotlib.rcdefaults()
+    plt.figure(figsize=(8, 6))
+    plt.axis("auto")
 
 
 def main():
