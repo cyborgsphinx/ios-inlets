@@ -132,7 +132,8 @@ def do_chart(
     chart_fn,
     use_averages: bool,
 ):
-    print(f"Producing {kind} plot for {inlet.name}")
+    averaging = " averages" if use_averages else ""
+    print(f"Producing {kind}{averaging} plot for {inlet.name}")
     chart_fn(
         inlet,
         inlet.limits[kind] if use_limits and kind in inlet.limits else [],
