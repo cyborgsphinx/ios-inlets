@@ -426,9 +426,10 @@ def main():
     parser.add_argument("-k", "--limit-name", type=str, nargs="+", default=[])
     parser.add_argument("-I", "--remove-inlet-name", type=str, nargs="+", default=[])
     parser.add_argument("-b", "--plot-buckets", action="store_true")
-    parser.add_argument("-a", "--use-averages", action="store_true")
+    parser.add_argument("-a", "--plot-averages", action="store_true")
     parser.add_argument("-A", "--plot-annual", action="store_true")
-    parser.add_argument("-m", "--plot-monthly", action="store_true")
+    parser.add_argument("-s", "--plot-sampling", action="store_true")
+    parser.add_argument("--plot-all", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(
         args.data,
@@ -439,24 +440,28 @@ def main():
         args.limit_name,
     )
     plt.figure(figsize=(8, 6))
-    if args.plot_annual:
+    if args.plot_all:
+        (plot_annual, plot_sampling, plot_average, plot_raw, plot_buckets) = (True, True, True, True, False)
+    else:
+        (plot_annual, plot_sampling, plot_average, plot_raw, plot_buckets) = (args.plot_annual, args.plot_sampling, args.plot_averages, args.plot_raw, args.plot_buckets)
+    if plot_annual:
         chart_annual_temperature_averages(inlet_list)
         chart_annual_salinity_averages(inlet_list)
         chart_annual_oxygen_averages(inlet_list)
         chart_temperature_anomalies(inlet_list)
         chart_salinity_anomalies(inlet_list)
         chart_oxygen_anomalies(inlet_list)
-    elif args.plot_monthly:
+    if plot_sampling:
         for inlet in inlet_list:
             do_chart(
                 inlet,
                 "samples",
                 not args.no_limits,
                 chart_stations,
-                args.use_averages,
+                False,
             )
             chart_monthly_sample(inlet)
-    elif args.plot_buckets:
+    if plot_buckets:
         do_chart_all(
             inlet_list,
             "temperature",
@@ -481,28 +486,51 @@ def main():
         do_chart_all(inlet_list, "oxygen", inlet_data.SHALLOW, chart_all_oxygen)
         do_chart_all(inlet_list, "oxygen", inlet_data.MIDDLE, chart_all_oxygen)
         do_chart_all(inlet_list, "oxygen", inlet_data.DEEP, chart_all_oxygen)
-    else:
+    if plot_average:
         for inlet in inlet_list:
             do_chart(
                 inlet,
                 "temperature",
                 not args.no_limits,
                 chart_temperatures,
-                args.use_averages,
+                True,
             )
             do_chart(
                 inlet,
                 "salinity",
                 not args.no_limits,
                 chart_salinities,
-                args.use_averages,
+                True,
             )
             do_chart(
                 inlet,
                 "oxygen",
                 not args.no_limits,
                 chart_oxygen_data,
-                args.use_averages,
+                True,
+            )
+    if plot_raw:
+        for inlet in inlet_list:
+            do_chart(
+                inlet,
+                "temperature",
+                not args.no_limits,
+                chart_temperatures,
+                False,
+            )
+            do_chart(
+                inlet,
+                "salinity",
+                not args.no_limits,
+                chart_salinities,
+                False,
+            )
+            do_chart(
+                inlet,
+                "oxygen",
+                not args.no_limits,
+                chart_oxygen_data,
+                False,
             )
     plt.close()
 
