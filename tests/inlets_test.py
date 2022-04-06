@@ -127,7 +127,7 @@ def test_find_depth_data(source):
     ],
 )
 def test_inlet_contains(polygon, point):
-    inlet = inlets.Inlet("Test Inlet", polygon, [1, 2, 3], {}, db_name=DB_NAME)
+    inlet = inlets.Inlet("Test Inlet", "Test Area", polygon, [1, 2, 3], {}, db_name=DB_NAME)
     assert inlet.contains(point)
 
 
@@ -158,6 +158,7 @@ def test_inlet_add_temperature(source):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
         "Test Inlet",
+        "Test Area",
         Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]),
         [0, 150, 300],
         {},
@@ -196,6 +197,7 @@ def test_inlet_add_salinity(source):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
         "Test Inlet",
+        "Test Area",
         Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]),
         [0, 150, 300],
         {},
@@ -246,6 +248,7 @@ def test_inlet_add_oxygen(source):
         pytest.skip(f"{file} is not accessible")
     inlet = inlets.Inlet(
         "Test Inlet",
+        "Test Area",
         Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]),
         [0, 150, 300],
         {},
