@@ -408,10 +408,10 @@ def chart_monthly_sample(inlet: inlets.Inlet):
     plt.axis("tight")
     plt.colorbar()
     plt.savefig(figure_path(f"{normalize(inlet.name)}-monthly-sampling.png"))
+    plt.close()
 
     # reset values
     matplotlib.rcdefaults()
-    plt.figure(figsize=(8, 6))
     plt.axis("auto")
 
 
