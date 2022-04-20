@@ -217,12 +217,15 @@ def do_chart_all(inlet_list, kind, bucket, chart_all_fn):
 ############################
 
 
-def do_annual_work(inlet_list, data_fn, averaging_fn):
+def do_annual_work(inlet_list, data_fn, averaging_fn, limit_fn):
     plt.clf()
     for inlet, line_style in zip(inlet_list, INLET_LINES):
+        limits = limit_fn(inlet)
         totals = {}
         times, data = data_fn(inlet)
         for time, datum in zip(times, data):
+            if len(limits) > 0 and not (limits[0] < datum < limits[1]):
+                continue
             year = time.year
             if year not in totals:
                 totals[year] = (0, 0)
@@ -236,10 +239,10 @@ def do_annual_work(inlet_list, data_fn, averaging_fn):
     plt.legend()
 
 
-def do_annual_work_parts(inlet_list, data_fn, averaging_fn, y_label, title):
+def do_annual_work_parts(inlet_list, data_fn, averaging_fn, y_label, title, limit_fn):
     areas = set(inlet.area for inlet in inlet_list)
     for area in areas:
-        do_annual_work([inlet for inlet in inlet_list if inlet.area == area], data_fn, averaging_fn)
+        do_annual_work([inlet for inlet in inlet_list if inlet.area == area], data_fn, averaging_fn, limit_fn)
         plt.ylabel(y_label)
         plt.title(f"{title} - {area}")
         plt.savefig(figure_path(f"{normalize(title)}-{normalize(area)}.png"))
@@ -256,71 +259,77 @@ def anomalies_averaging(totals, data):
     return {y: a - avg for y, a in avgs.items()}
 
 
-def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn, y_label, title):
-    do_annual_work_parts(inlet_list, data_fn, anomalies_averaging, y_label, title)
+def chart_anomalies(inlet_list: List[inlets.Inlet], data_fn, y_label, title, use_limits):
+    do_annual_work_parts(inlet_list, data_fn, anomalies_averaging, y_label, title, use_limits)
 
 
-def chart_temperature_anomalies(inlet_list: List[inlets.Inlet]):
+def chart_temperature_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing temperature anomaly plots")
     chart_anomalies(
         inlet_list,
         lambda inlet: inlet.get_temperature_data(inlet_data.USED, do_average=True),
         "Temperature (C)",
         "Deep Water Temperature Anomalies",
+        lambda inlet: inlet.limits["temperature"] if use_limits and "temperature" in inlet.limits else [],
     )
 
 
-def chart_salinity_anomalies(inlet_list: List[inlets.Inlet]):
+def chart_salinity_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing salinity anomaly plots")
     chart_anomalies(
         inlet_list,
         lambda inlet: inlet.get_salinity_data(inlet_data.USED, do_average=True),
         "Salinity (PSU)",
         "Deep Water Salinity Anomalies",
+        lambda inlet: inlet.limits["salinity"] if use_limits and "salinity" in inlet.limits else [],
     )
 
 
-def chart_oxygen_anomalies(inlet_list: List[inlets.Inlet]):
+def chart_oxygen_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing oxygen anomaly plot")
     chart_anomalies(
         inlet_list,
         lambda inlet: inlet.get_oxygen_data(inlet_data.USED, do_average=True),
         "Oxygen (mL/L)",
         "Deep Water Dissolved Oxygen Anomalies",
+        lambda inlet: inlet.limits["oxygen"] if use_limits and "oxygen" in inlet.limits else [],
     )
 
 
-def do_chart_annual_averages(inlet_list: List[inlets.Inlet], data_fn, y_label, title):
-    do_annual_work_parts(inlet_list, data_fn, annual_averaging, y_label, title)
+def do_chart_annual_averages(inlet_list: List[inlets.Inlet], data_fn, y_label, title, limit_fn):
+    do_annual_work_parts(inlet_list, data_fn, annual_averaging, y_label, title, limit_fn)
 
 
-def chart_annual_temperature_averages(inlet_list: List[inlets.Inlet]):
+def chart_annual_temperature_averages(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing annual temperature plots")
     do_chart_annual_averages(
         inlet_list,
         lambda inlet: inlet.get_temperature_data(inlet_data.USED, do_average=True),
         "Temperature (C)",
         "Deep Water Temperature Annual Averages",
+        lambda inlet: inlet.limits["temperature"] if use_limits and "temperature" in inlet.limits else [],
     )
 
 
-def chart_annual_salinity_averages(inlet_list: List[inlets.Inlet]):
+def chart_annual_salinity_averages(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing annual salinity plots")
     do_chart_annual_averages(
         inlet_list,
         lambda inlet: inlet.get_salinity_data(inlet_data.USED, do_average=True),
         "Salinity (PSU)",
         "Deep Water Salinity Annual Averages",
+        lambda inlet: inlet.limits["salinity"] if use_limits and "salinity" in inlet.limits else [],
     )
 
 
-def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet]):
+def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing annual oxygen plots")
     do_chart_annual_averages(
         inlet_list,
         lambda inlet: inlet.get_oxygen_data(inlet_data.USED, do_average=True),
         "Oxygen (mL/L)",
         "Deep Water Dissolved Oxygen Annual Averages",
+        lambda inlet: inlet.limits["oxygen"] if use_limits and "oxygen" in inlet.limits else [],
     )
 
 
@@ -446,12 +455,12 @@ def main():
     else:
         (plot_annual, plot_sampling, plot_average, plot_raw, plot_buckets) = (args.plot_annual, args.plot_sampling, args.plot_averages, args.plot_raw, args.plot_buckets)
     if plot_annual:
-        chart_annual_temperature_averages(inlet_list)
-        chart_annual_salinity_averages(inlet_list)
-        chart_annual_oxygen_averages(inlet_list)
-        chart_temperature_anomalies(inlet_list)
-        chart_salinity_anomalies(inlet_list)
-        chart_oxygen_anomalies(inlet_list)
+        chart_annual_temperature_averages(inlet_list, not args.no_limits)
+        chart_annual_salinity_averages(inlet_list, not args.no_limits)
+        chart_annual_oxygen_averages(inlet_list, not args.no_limits)
+        chart_temperature_anomalies(inlet_list, not args.no_limits)
+        chart_salinity_anomalies(inlet_list, not args.no_limits)
+        chart_oxygen_anomalies(inlet_list, not args.no_limits)
     if plot_sampling:
         for inlet in inlet_list:
             do_chart(
