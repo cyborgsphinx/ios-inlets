@@ -33,9 +33,9 @@ def figure_path(filename: str):
 def chart_data(inlet: inlets.Inlet, limits: List[float], data_fn):
     # produce a matplotlib chart, which can be shown or saved at the upper level
     plt.clf()
-    shallow_time, shallow_data = data_fn(inlet, inlet_data.SHALLOW)
-    middle_time, middle_data = data_fn(inlet, inlet_data.MIDDLE)
-    deep_time, deep_data = data_fn(inlet, inlet_data.DEEP)
+    shallow_time, shallow_data = data_fn(inlet, inlet_data.DEEP)
+    middle_time, middle_data = data_fn(inlet, inlet_data.DEEPER)
+    deep_time, deep_data = data_fn(inlet, inlet_data.DEEPEST)
     if len(limits) > 1:
         shallow_time, shallow_data = zip(
             *[
@@ -475,27 +475,27 @@ def main():
         do_chart_all(
             inlet_list,
             "temperature",
-            inlet_data.SHALLOW,
-            chart_all_temperature,
-        )
-        do_chart_all(
-            inlet_list,
-            "temperature",
-            inlet_data.MIDDLE,
-            chart_all_temperature,
-        )
-        do_chart_all(
-            inlet_list,
-            "temperature",
             inlet_data.DEEP,
             chart_all_temperature,
         )
-        do_chart_all(inlet_list, "salinity", inlet_data.SHALLOW, chart_all_salinity)
-        do_chart_all(inlet_list, "salinity", inlet_data.MIDDLE, chart_all_salinity)
+        do_chart_all(
+            inlet_list,
+            "temperature",
+            inlet_data.DEEPER,
+            chart_all_temperature,
+        )
+        do_chart_all(
+            inlet_list,
+            "temperature",
+            inlet_data.DEEPEST,
+            chart_all_temperature,
+        )
         do_chart_all(inlet_list, "salinity", inlet_data.DEEP, chart_all_salinity)
-        do_chart_all(inlet_list, "oxygen", inlet_data.SHALLOW, chart_all_oxygen)
-        do_chart_all(inlet_list, "oxygen", inlet_data.MIDDLE, chart_all_oxygen)
+        do_chart_all(inlet_list, "salinity", inlet_data.DEEPER, chart_all_salinity)
+        do_chart_all(inlet_list, "salinity", inlet_data.DEEPEST, chart_all_salinity)
         do_chart_all(inlet_list, "oxygen", inlet_data.DEEP, chart_all_oxygen)
+        do_chart_all(inlet_list, "oxygen", inlet_data.DEEPER, chart_all_oxygen)
+        do_chart_all(inlet_list, "oxygen", inlet_data.DEEPEST, chart_all_oxygen)
     if plot_average:
         for inlet in inlet_list:
             do_chart(

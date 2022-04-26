@@ -8,9 +8,11 @@ from typing import List
 
 sqlite3.paramstyle = "named"
 DB_NAME = os.path.join("data", "inlet_data.db")
+SURFACE = "surface"
 SHALLOW = "shallow"
-MIDDLE = "middle"
 DEEP = "deep"
+DEEPER = "deeper"
+DEEPEST = "deepest"
 IGNORE = "ignore"
 ALL = "all"
 USED = "used"

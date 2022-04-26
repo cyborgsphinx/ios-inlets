@@ -32,6 +32,14 @@ def is_in_bounds(val, lower, upper):
         return lower <= val
 
 
+def is_surface(depth):
+    return is_in_bounds(depth, 0, 30)
+
+
+def is_shallow(depth):
+    return is_in_bounds(depth, 30, 100)
+
+
 def get_datetime(d):
     return pandas.to_datetime(d).to_pydatetime()
 
@@ -580,12 +588,16 @@ class Inlet(object):
             if t.replace(tzinfo=None) > datetime.datetime.now():
                 logging.warning(f"Data from {filename} is from the future: {t}")
                 continue
-            if self.is_shallow(d):
+            if is_surface(d):
+                category = inlet_data.SURFACE
+            elif is_shallow(d):
                 category = inlet_data.SHALLOW
-            elif self.is_middle(d):
-                category = inlet_data.MIDDLE
-            elif self.is_deep(d):
+            elif self.is_shallow(d):
                 category = inlet_data.DEEP
+            elif self.is_middle(d):
+                category = inlet_data.DEEPER
+            elif self.is_deep(d):
+                category = inlet_data.DEEPEST
             else:
                 category = inlet_data.IGNORE
             if not is_acceptable_quality(q):
@@ -876,12 +888,16 @@ class Inlet(object):
 
         if len(depth) > 0:
             depth = float(depth)
-            if self.is_shallow(depth):
+            if is_surface(depth):
+                bucket = inlet_data.SURFACE
+            elif is_shallow(depth):
                 bucket = inlet_data.SHALLOW
-            elif self.is_middle(depth):
-                bucket = inlet_data.MIDDLE
-            elif self.is_deep(depth):
+            elif self.is_shallow(depth):
                 bucket = inlet_data.DEEP
+            elif self.is_middle(depth):
+                bucket = inlet_data.DEEPER
+            elif self.is_deep(depth):
+                bucket = inlet_data.DEEPEST
             else:
                 bucket = inlet_data.IGNORE
         else:
