@@ -562,6 +562,11 @@ class Inlet(object):
         once = [False] * 2
         warn_unused = True
         for t, d, datum, q in zip(times, depths, data, quality):
+            if math.isnan(datum):
+                # no warning since NaN data is incredibly common
+                # if a file winds up with no data because all the data was NaN, don't warn that it wasn't used
+                warn_unused = False
+                continue
             # Some data, particularly salinity data, seems to be the result of performing calculations on NaN values.
             # This data is consistently showing up as 9.96921e+36, which may relate to the "Fill Value" in creating netCDF files.
             # In any case, it appears to be as invalid as NaN, so it's being filtered out accordingly
@@ -572,17 +577,12 @@ class Inlet(object):
                     )
                     once[0] = True
                 continue
-            if datum == placeholder:
+            if datum == placeholder or int(datum) == int(placeholder):
                 if not once[1]:
                     logging.warning(
-                        f"Data from {filename} has value {placeholder}, which is likely a standin for NaN"
+                        f"Data from {filename} has value {datum}, which is likely a standin for NaN"
                     )
                     once[1] = True
-                datum = numpy.nan
-            if math.isnan(datum):
-                # no warning since NaN data is incredibly common
-                # if a file winds up with no data because all the data was NaN, don't warn that it wasn't used
-                warn_unused = False
                 continue
             t = get_datetime(t)
             if t.replace(tzinfo=None) > datetime.datetime.now():

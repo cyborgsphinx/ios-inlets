@@ -8,8 +8,14 @@
         "area": "Salish Sea",
         "boundaries": [145, 170, 190],
         "limits": {
-          "oxygen": [0, 3.3],
-          "salinity": [30.8, 31.6]
+          "oxygen": {
+            "deep": [0, 3.3],
+            "surface": []
+          },
+          "salinity": {
+            "deep": [30.8, 31.6],
+            "surface": []
+          }
         }
       },
       "geometry": {
@@ -31,7 +37,10 @@
         "area": "Salish Sea",
         "boundaries": [400, 500, 600],
         "limits": {
-          "salinity": [30.5, 31.4]
+          "salinity": {
+            "deep": [30.5, 31.4],
+            "surface": []
+          }
         }
       },
       "geometry": {
@@ -54,8 +63,14 @@
         "area": "North Mainland Coast",
         "boundaries": [400, 500, 600],
         "limits": {
-          "oxygen": [0, 5],
-          "salinity": [30.3, 31]
+          "oxygen": {
+            "deep": [0, 5],
+            "surface": []
+          },
+          "salinity": {
+            "deep": [30.3, 31],
+            "surface": []
+          }
         }
       },
       "geometry": {
@@ -104,7 +119,10 @@
         "area": "Salish Sea",
         "boundaries": [100, 150, 200],
         "limits": {
-          "salinity": [25, 30]
+          "salinity": {
+            "deep": [25, 30],
+            "surface": []
+          }
         }
       },
       "geometry": {
@@ -194,7 +212,10 @@
         "area": "North Mainland Coast",
         "boundaries": [250, 350, 450],
         "limits": {
-          "salinity": [29, 36]
+          "salinity": {
+            "deep": [29, 36],
+            "surface": []
+          }
         }
       },
       "geometry": {
@@ -287,7 +308,10 @@
         "area": "North Mainland Coast",
         "boundaries": [200, 300, 400],
         "limits": {
-          "oxygen": [0, 100]
+          "oxygen": {
+            "deep": [0, 100],
+            "surface": []
+          }
         }
       },
       "geometry": {

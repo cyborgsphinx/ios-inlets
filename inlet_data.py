@@ -16,6 +16,8 @@ DEEPEST = "deepest"
 IGNORE = "ignore"
 ALL = "all"
 USED = "used"
+USED_SURFACE = "used surface"
+USED_DEEP = "used deep"
 
 
 def _table_name(inlet_name: str) -> str:
@@ -210,6 +212,20 @@ class InletDb:
                 where kind=:kind and bucket!=:bucket
                 """,
                 {"kind": kind, "bucket": IGNORE}
+            )
+        elif bucket == USED_SURFACE:
+            cursor = self.connection.execute(
+                f"""select * from {self.name}
+                where kind=:kind and bucket in (:surface, :shallow)
+                """,
+                {"kind": kind, "surface": SURFACE, "shallow": SHALLOW}
+            )
+        elif bucket == USED_DEEP:
+            cursor = self.connection.execute(
+                f"""select * from {self.name}
+                where kind=:kind and bucket in (:deep, :deeper, :deepest)
+                """,
+                {"kind": kind, "deep": DEEP, "deeper": DEEPER, "deepest": DEEPEST}
             )
         else:
             cursor = self.connection.execute(
