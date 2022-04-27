@@ -165,6 +165,7 @@ def chart_stations(inlet: inlets.Inlet, _limits: Dict[str,List[float]], _use_ave
     plt.ylabel("Number of Stations")
     plt.legend()
     plt.title(f"{inlet.name} Sampling History")
+    plt.savefig(figure_path(f"{normalize(inlet.name)}-samples.png"))
 
 
 def do_chart(
@@ -547,7 +548,7 @@ def main():
             do_chart(
                 inlet,
                 "samples",
-                not args.no_limits,
+                False,
                 chart_stations,
                 False,
             )
