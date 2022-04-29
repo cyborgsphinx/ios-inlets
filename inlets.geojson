@@ -355,6 +355,7 @@
         "name": "Effingham Inlet",
         "area": "West Vancouver Island Coast",
         "boundaries": [50, 100, 150],
+        "shallow boundaries": [0, 30],
         "limits": {
         }
       },
@@ -379,6 +380,7 @@
         "name": "Quatsino Sound",
         "area": "West Vancouver Island Coast",
         "boundaries": [70, 110, 150],
+        "shallow boundaries": [0, 30, 70],
         "limits": {
         }
       },

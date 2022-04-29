@@ -25,6 +25,13 @@ def figure_path(filename: str):
     return os.path.join("figures", filename)
 
 
+def label_from_bounds(lower, upper):
+    if upper is None:
+        return f">{lower}m"
+    else:
+        return f"{lower}m-{upper}m"
+
+
 ########################
 # Single inlet functions
 ########################
@@ -58,20 +65,15 @@ def chart_deep_data(inlet: inlets.Inlet, limits: List[float], data_fn):
         shallow_time,
         shallow_data,
         "xg",
-        label=f"{inlet.shallow_bounds[0]}m-{inlet.shallow_bounds[1]}m",
+        label=label_from_bounds(*inlet.deep_bounds),
     )
     plt.plot(
         middle_time,
         middle_data,
         "+m",
-        label=f"{inlet.middle_bounds[0]}m-{inlet.middle_bounds[1]}m",
+        label=label_from_bounds(*inlet.deeper_bounds),
     )
-    deep_label = (
-        f">{inlet.deep_bounds[0]}m"
-        if inlet.deep_bounds[1] is None
-        else f"{inlet.deep_bounds[0]}m-{inlet.deep_bounds[1]}m"
-    )
-    plt.plot(deep_time, deep_data, "xb", label=deep_label)
+    plt.plot(deep_time, deep_data, "xb", label=label_from_bounds(*inlet.deepest_bounds))
     plt.legend()
 
 
@@ -94,8 +96,9 @@ def chart_surface_data(inlet: inlets.Inlet, limits: List[float], data_fn):
                 if limits[0] < d < limits[1]
             ]
         )
-    plt.plot(surface_time, surface_data, "xg", label="0m-30m")
-    plt.plot(shallow_time, shallow_data, "+m", label="30m-100m")
+    plt.plot(surface_time, surface_data, "xg", label=label_from_bounds(*inlet.surface_bounds))
+    if inlet.shallow_bounds is not None:
+        plt.plot(shallow_time, shallow_data, "+m", label=label_from_bounds(*inlet.shallow_bounds))
     plt.legend()
 
 

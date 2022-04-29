@@ -32,14 +32,6 @@ def is_in_bounds(val, lower, upper):
         return lower <= val
 
 
-def is_surface(depth):
-    return is_in_bounds(depth, 0, 30)
-
-
-def is_shallow(depth):
-    return is_in_bounds(depth, 30, 100)
-
-
 def get_datetime(d):
     return pandas.to_datetime(d).to_pydatetime()
 
@@ -432,12 +424,13 @@ class Inlet(object):
         limits: Dict[str, List[float]],
         clear_old_data: bool = False,
         db_name=None,
+        shallow: List[int] = [0, 30, 100],
     ):
         self.name = name
         self.area = area
-        self.shallow_bounds = (boundaries[0], boundaries[1])
-        self.middle_bounds = (boundaries[1], boundaries[2])
-        self.deep_bounds = (
+        self.deep_bounds = (boundaries[0], boundaries[1])
+        self.deeper_bounds = (boundaries[1], boundaries[2])
+        self.deepest_bounds = (
             boundaries[2],
             boundaries[3] if len(boundaries) > 3 else None,
         )
@@ -448,6 +441,11 @@ class Inlet(object):
             self.data = inlet_data.InletDb(name, clear_old_data, db_name)
         else:
             self.data = inlet_data.InletDb(name, clear_old_data)
+        self.surface_bounds = (shallow[0], shallow[1])
+        if len(shallow) > 2:
+            self.shallow_bounds = (shallow[1], shallow[2])
+        else:
+            self.shallow_bounds = None
 
     def get_temperature_data(self, bucket, before=None, do_average=False):
         return get_data(self.data.get_temperature_data(bucket, average=do_average), before, do_average)
@@ -526,14 +524,20 @@ class Inlet(object):
 
         return self.polygon.contains(Point(longitude, latitude))
 
-    def is_shallow(self, depth):
-        return is_in_bounds(depth, *self.shallow_bounds)
+    def is_surface(self, depth):
+        return is_in_bounds(depth, *self.surface_bounds)
 
-    def is_middle(self, depth):
-        return is_in_bounds(depth, *self.middle_bounds)
+    def is_shallow(self, depth):
+        return self.shallow_bounds is not None and is_in_bounds(depth, *self.shallow_bounds)
 
     def is_deep(self, depth):
         return is_in_bounds(depth, *self.deep_bounds)
+
+    def is_deeper(self, depth):
+        return is_in_bounds(depth, *self.deeper_bounds)
+
+    def is_deepest(self, depth):
+        return is_in_bounds(depth, *self.deepest_bounds)
 
     def produce_data(
         self,
@@ -588,15 +592,15 @@ class Inlet(object):
             if t.replace(tzinfo=None) > datetime.datetime.now():
                 logging.warning(f"Data from {filename} is from the future: {t}")
                 continue
-            if is_surface(d):
+            if self.is_surface(d):
                 category = inlet_data.SURFACE
-            elif is_shallow(d):
-                category = inlet_data.SHALLOW
             elif self.is_shallow(d):
-                category = inlet_data.DEEP
-            elif self.is_middle(d):
-                category = inlet_data.DEEPER
+                category = inlet_data.SHALLOW
             elif self.is_deep(d):
+                category = inlet_data.DEEP
+            elif self.is_deeper(d):
+                category = inlet_data.DEEPER
+            elif self.is_deepest(d):
                 category = inlet_data.DEEPEST
             else:
                 category = inlet_data.IGNORE
@@ -888,15 +892,15 @@ class Inlet(object):
 
         if len(depth) > 0:
             depth = float(depth)
-            if is_surface(depth):
+            if self.is_surface(depth):
                 bucket = inlet_data.SURFACE
-            elif is_shallow(depth):
-                bucket = inlet_data.SHALLOW
             elif self.is_shallow(depth):
-                bucket = inlet_data.DEEP
-            elif self.is_middle(depth):
-                bucket = inlet_data.DEEPER
+                bucket = inlet_data.SHALLOW
             elif self.is_deep(depth):
+                bucket = inlet_data.DEEP
+            elif self.is_deeper(depth):
+                bucket = inlet_data.DEEPER
+            elif self.is_deepest(depth):
                 bucket = inlet_data.DEEPEST
             else:
                 bucket = inlet_data.IGNORE
@@ -1008,7 +1012,10 @@ def get_inlets(
                 else {}
             )
             polygon = Polygon(content["geometry"]["coordinates"][0])
-            inlet_list.append(Inlet(name, area, polygon, boundaries, limits, not from_saved))
+            if "shallow boundaries" in content["properties"]:
+                inlet_list.append(Inlet(name, area, polygon, boundaries, limits, clear_old_data=not from_saved, shallow=content["properties"]["shallow boundaries"]))
+            else:
+                inlet_list.append(Inlet(name, area, polygon, boundaries, limits, clear_old_data=not from_saved))
     if not from_saved:
         if not skip_netcdf:
             for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
