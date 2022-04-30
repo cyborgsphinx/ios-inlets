@@ -414,6 +414,12 @@ def get_outliers(col, bucket="all", before=None):
     return [datum for datum in data if datum.value < 3]
 
 
+def hakai_quality(quality):
+    del quality
+    # assume all qualities are good for now
+    return 1
+
+
 class Inlet(object):
     def __init__(
         self,
@@ -875,107 +881,101 @@ class Inlet(object):
                 )
             )
 
-    def add_row_from_csv(self, csv_row, filename):
-        time = csv_row["Measurement time"]
-        depth = csv_row["Depth (m)"]
-        temperature = csv_row["Temperature (deg C)"]
-        oxygen_ml_l = csv_row["Dissolved O2 (mL/L)"]
-        salinity = csv_row["Salinity (PSU)"]
-        longitude = csv_row["Longitude"]
-        latitude = csv_row["Latitude"]
+    def add_data_from_csv(self, data, filename):
+        time = pandas.to_datetime(data["Measurement time"])
+        longitude = data["Longitude"]
+        latitude = data["Latitude"]
+        depth = data["Depth (m)"]
+        temperature = data["Temperature (deg C)"]
+        temperature_flag = data["Temperature flag"].map(hakai_quality)
+        oxygen_ml_l = data["Dissolved O2 (mL/L)"]
+        oxygen_flag = data["Dissolved O2 (mL/L) flag"].map(hakai_quality)
+        salinity = data["Salinity (PSU)"]
+        salinity_flag = data["Salinity flag"].map(hakai_quality)
 
-        if len(time) > 0:
-            time = datetime.datetime.fromisoformat(time)
-        else:
-            logging.warning("No time")
-            time = datetime.datetime.min
+        bucket = depth.map(lambda d: (
+            inlet_data.SURFACE if self.is_surface(d) else
+            inlet_data.SHALLOW if self.is_shallow(d) else
+            inlet_data.DEEP if self.is_deep(d) else
+            inlet_data.DEEPER if self.is_deeper(d) else
+            inlet_data.DEEPEST if self.is_deepest(d) else
+            inlet_data.IGNORE
+        ))
 
-        if len(depth) > 0:
-            depth = float(depth)
-            if self.is_surface(depth):
-                bucket = inlet_data.SURFACE
-            elif self.is_shallow(depth):
-                bucket = inlet_data.SHALLOW
-            elif self.is_deep(depth):
-                bucket = inlet_data.DEEP
-            elif self.is_deeper(depth):
-                bucket = inlet_data.DEEPER
-            elif self.is_deepest(depth):
-                bucket = inlet_data.DEEPEST
-            else:
-                bucket = inlet_data.IGNORE
-        else:
-            logging.warning("No depth")
-            depth = math.nan
-            bucket = inlet_data.IGNORE
+        temperature_index = temperature.notna()
+        salinity_index = salinity.notna()
+        oxygen_index = oxygen_ml_l.notna()
 
-        if len(temperature) > 0:
-            temperature = float(temperature)
-        else:
-            logging.warning("No temperature")
-            temperature = math.nan
-
-        if len(oxygen_ml_l) > 0:
-            oxygen_ml_l = float(oxygen_ml_l)
-        else:
-            logging.warning("No oxygen_ml_l")
-            oxygen_ml_l = math.nan
-
-        if len(salinity) > 0:
-            salinity = float(salinity)
-        else:
-            logging.warning("No salinity")
-            salinity = math.nan
-
-        if len(longitude) > 0:
-            longitude = float(longitude)
-        else:
-            logging.warning("No longitude")
-            longitude = math.nan
-
-        if len(latitude) > 0:
-            latitude = float(latitude)
-        else:
-            logging.warning("No latitude")
-            latitude = math.nan
-
-        assumed_quality = 1  # assume good quality for hakai csv data
-
-        self.data.add_temperature_value(
-            inlet_data.InletData(
-                time=time,
-                bucket=bucket,
-                depth=depth,
-                value=temperature,
-                quality=assumed_quality,
-                longitude=longitude,
-                latitude=latitude,
-                filename=filename,
-            )
+        self.data.add_temperature_data(
+            [
+                inlet_data.InletData(
+                    time=t,
+                    depth=d,
+                    bucket=b,
+                    value=v,
+                    quality=q,
+                    longitude=lon,
+                    latitude=lat,
+                    filename=filename,
+                )
+                for t, d, b, v, q, lon, lat in zip(
+                    time[temperature_index],
+                    depth[temperature_index],
+                    bucket[temperature_index],
+                    temperature[temperature_index],
+                    temperature_flag[temperature_index],
+                    longitude[temperature_index],
+                    latitude[temperature_index],
+                )
+            ]
         )
-        self.data.add_salinity_value(
-            inlet_data.InletData(
-                time=time,
-                bucket=bucket,
-                depth=depth,
-                value=salinity,
-                quality=assumed_quality,
-                longitude=longitude,
-                latitude=latitude,
-                filename=filename,
-            )
+
+        self.data.add_salinity_data(
+            [
+                inlet_data.InletData(
+                    time=t,
+                    depth=d,
+                    bucket=b,
+                    value=v,
+                    quality=q,
+                    longitude=lon,
+                    latitude=lat,
+                    filename=filename,
+                )
+                for t, d, b, v, q, lon, lat in zip(
+                    time[salinity_index],
+                    depth[salinity_index],
+                    bucket[temperature_index],
+                    salinity[salinity_index],
+                    salinity_flag[salinity_index],
+                    longitude[salinity_index],
+                    latitude[salinity_index],
+                )
+            ]
         )
-        self.data.add_oxygen_value(
-            inlet_data.InletData(
-                time=time,
-                bucket=bucket,
-                depth=depth,
-                value=oxygen_ml_l,
-                quality=assumed_quality,
-                longitude=longitude,
-                latitude=latitude,
-                filename=filename,
-            )
+
+        self.data.add_oxygen_data(
+            [
+                inlet_data.InletData(
+                    time=t,
+                    depth=d,
+                    bucket=b,
+                    value=v,
+                    quality=q,
+                    longitude=lon,
+                    latitude=lat,
+                    filename=filename
+                )
+                for t, d, b, v, q, lon, lat in zip(
+                    time[oxygen_index],
+                    depth[oxygen_index],
+                    bucket[temperature_index],
+                    oxygen_ml_l[oxygen_index],
+                    oxygen_flag[oxygen_index],
+                    longitude[oxygen_index],
+                    latitude[oxygen_index],
+                )
+            ]
         )
 
 
@@ -1048,8 +1048,9 @@ def get_inlets(
                         continue
                     for inlet in inlet_list:
                         if inlet.contains(shell.get_location()):
-                            # use item instead of file_name because the netcdf files don't store path information
-                            # they also do not store the .nc extension, so this should be reasonable
+                            # Use item instead of file_name because the netcdf files don't store
+                            # path information. They also do not store the .nc extension, so this
+                            # should be reasonable
                             if not inlet.has_data_from(item.lower()):
                                 try:
                                     shell.process_data()
@@ -1062,16 +1063,12 @@ def get_inlets(
 
         # hakai data
         for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
-            with open(os.path.join(data_dir, file)) as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    for inlet in inlet_list:
-                        coords = {
-                            "longitude": float(row["Longitude"]),
-                            "latitude": float(row["Latitude"]),
-                        }
-                        if inlet.contains(coords):
-                            inlet.add_row_from_csv(row, file)
+            data = pandas.read_csv(os.path.join(data_dir, file))
+            for inlet in inlet_list:
+                inside_inlet = data.loc[lambda frame: [inlet.contains({"longitude": lon, "latitude": lat}) for lon, lat in zip(frame["Longitude"], frame["Latitude"])]]
+                if len(inside_inlet) == 0:
+                    continue
+                inlet.add_data_from_csv(inside_inlet, file)
 
     return inlet_list
 
