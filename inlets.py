@@ -510,21 +510,12 @@ class Inlet(object):
             stations[year].add(datum.filename)
         return stations
 
-    def contains(self, data):
-        longitude, latitude = None, None
-        if "longitude" in data:
-            longitude = data["longitude"]
-        elif "LONGITUDE" in data:
-            longitude = data["LONGITUDE"]
-        else:
+    def contains(self, latitude=None, longitude=None):
+        if longitude is None:
             logging.warning("data does not contain longitude information")
             return False
 
-        if "latitude" in data:
-            latitude = data["latitude"]
-        elif "LATITUDE" in data:
-            latitude = data["LATITUDE"]
-        else:
+        if latitude is None:
             logging.warning("data does not contain latitude information")
             return False
 
@@ -1023,7 +1014,7 @@ def get_inlets(
                     file_name = os.path.join(root, item)
                     data = xarray.open_dataset(file_name)
                     for inlet in inlet_list:
-                        if inlet.contains(data):
+                        if inlet.contains(latitude=data.latitude, longitude=data.longitude):
                             try:
                                 inlet.add_data_from_netcdf(data)
                             except:
@@ -1047,7 +1038,7 @@ def get_inlets(
                         logging.exception(f"Error encountered reading {file_name}")
                         continue
                     for inlet in inlet_list:
-                        if inlet.contains(shell.get_location()):
+                        if inlet.contains(**shell.get_location()):
                             # Use item instead of file_name because the netcdf files don't store
                             # path information. They also do not store the .nc extension, so this
                             # should be reasonable
@@ -1065,7 +1056,7 @@ def get_inlets(
         for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
             data = pandas.read_csv(os.path.join(data_dir, file))
             for inlet in inlet_list:
-                inside_inlet = data.loc[lambda frame: [inlet.contains({"longitude": lon, "latitude": lat}) for lon, lat in zip(frame["Longitude"], frame["Latitude"])]]
+                inside_inlet = data.loc[lambda frame: [inlet.contains(longitude=lon, latitude=lat) for lon, lat in zip(frame["Longitude"], frame["Latitude"])]]
                 if len(inside_inlet) == 0:
                     continue
                 inlet.add_data_from_csv(inside_inlet, file)
