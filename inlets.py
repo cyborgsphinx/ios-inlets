@@ -521,6 +521,15 @@ class Inlet(object):
 
         return self.polygon.contains(Point(longitude, latitude))
 
+    def bounding_box(self):
+        min_lon, min_lat, max_lon, max_lat = self.polygon.bounds
+        return {
+            "min_lon": min_lon,
+            "max_lon": max_lon,
+            "min_lat": min_lat,
+            "max_lat": max_lat,
+        }
+
     def is_surface(self, depth):
         return is_in_bounds(depth, *self.surface_bounds)
 

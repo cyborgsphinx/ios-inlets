@@ -296,6 +296,37 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "fsspec"
+version = "2022.3.0"
+description = "File-system specification"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+abfs = ["adlfs"]
+adl = ["adlfs"]
+arrow = ["pyarrow (>=1)"]
+dask = ["dask", "distributed"]
+dropbox = ["dropboxdrivefs", "requests", "dropbox"]
+entrypoints = ["importlib-metadata"]
+fuse = ["fusepy"]
+gcs = ["gcsfs"]
+git = ["pygit2"]
+github = ["requests"]
+gs = ["gcsfs"]
+gui = ["panel"]
+hdfs = ["pyarrow (>=1)"]
+http = ["requests", "aiohttp"]
+libarchive = ["libarchive-c"]
+oci = ["ocifs"]
+s3 = ["s3fs"]
+sftp = ["paramiko"]
+smb = ["smbprotocol"]
+ssh = ["paramiko"]
+tqdm = ["tqdm"]
+
+[[package]]
 name = "gsw"
 version = "3.4.0"
 description = "Gibbs Seawater Oceanographic Package of TEOS-10"
@@ -1312,7 +1343,7 @@ viz = ["matplotlib", "seaborn", "nc-time-axis"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "f4c4e76f18348c264e02292d82b02194d4cc1e14415c84978e1a4b0eb422f60f"
+content-hash = "3316bbda8ac7e4f095f60e5804abbdb29a34d6d174ebd833491e1c6f206a729d"
 
 [metadata.files]
 appnope = [
@@ -1529,6 +1560,10 @@ fonttools = [
 ]
 fortranformat = [
     {file = "fortranformat-1.2.0.tar.gz", hash = "sha256:54d21d96f2a9f1e5cbf2d759030edc7ea69496983b4876b21aed539abf79a641"},
+]
+fsspec = [
+    {file = "fsspec-2022.3.0-py3-none-any.whl", hash = "sha256:a53491b003210fce6911dd8f2d37e20c41a27ce52a655eef11b885d1578ed4cf"},
+    {file = "fsspec-2022.3.0.tar.gz", hash = "sha256:fd582cc4aa0db5968bad9317cae513450eddd08b2193c4428d9349265a995523"},
 ]
 gsw = [
     {file = "gsw-3.4.0-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:c355bab42a4c2a8b3041c4b35fca371375ebddc0e48cbce6b1322e95451be0a7"},
