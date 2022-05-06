@@ -398,6 +398,7 @@ def get_data(col, before=None, do_average=False):
     data = [
         [datum.time, datum.value]
         for datum in col
+        if is_acceptable_quality(datum.quality)
     ]
     if before is not None:
         data = [[t, d] for t, d in data if t.year < before.year]
