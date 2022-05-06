@@ -18,6 +18,16 @@ import ios_shell.shell as ios
 
 EXCEPTIONALLY_BIG = 9.9e36
 
+SURFACE = "surface"
+SHALLOW = "shallow"
+DEEP = "deep"
+DEEPER = "deeper"
+DEEPEST = "deepest"
+IGNORE = "ignore"
+ALL = "all"
+USED_SURFACE = "used surface"
+USED_DEEP = "used deep"
+
 
 def get_length(arr):
     if arr is None:
@@ -403,17 +413,6 @@ def get_data(col, before=None, do_average=False):
     return zip(*data) if len(data) > 0 else [[], []]
 
 
-def get_outliers(col, bucket="all", before=None):
-    data = [
-        datum
-        for datum in col
-        if bucket == inlet_data.ALL and datum.bucket != inlet_data.IGNORE or datum.bucket == bucket
-    ]
-    if before is not None:
-        data = [datum for datum in data if datum.time.year < before.year]
-    return [datum for datum in data if datum.value < 3]
-
-
 def hakai_quality(quality):
     del quality
     # assume all qualities are good for now
@@ -453,50 +452,68 @@ class Inlet(object):
         else:
             self.shallow_bounds = None
 
-    def get_temperature_data(self, bucket, before=None, do_average=False):
-        return get_data(self.data.get_temperature_data(bucket, average=do_average), before, do_average)
+    def __bucket_to_bounds(self, bucket: str):
+        return (
+            (None, None) if bucket == ALL else
+            self.surface_bounds if bucket == SURFACE or bucket == USED_SURFACE and self.shallow_bounds is None else
+            self.shallow_bounds if bucket == SHALLOW else
+            self.deep_bounds if bucket == DEEP else
+            self.deeper_bounds if bucket == DEEPER else
+            self.deepest_bounds if bucket == DEEPEST else
+            (self.shallow_bounds[1], self.deep_bounds[0]) if bucket == IGNORE else
+            (self.surface_bounds[0], self.shallow_bounds[1]) if bucket == USED_SURFACE else
+            (self.deep_bounds[0], self.deepest_bounds[1]) if bucket == USED_DEEP else
+            None
+        )
 
-    def get_salinity_data(self, bucket, before=None, do_average=False):
-        return get_data(self.data.get_salinity_data(bucket, average=do_average), before, do_average)
+    def get_temperature_data(self, bucket: str, before=None, do_average=False):
+        if bucket == SHALLOW and self.shallow_bounds is None:
+            return [[], []]
+        bounds = self.__bucket_to_bounds(bucket)
+        return get_data(self.data.get_temperature_data(bounds, average=do_average), before, do_average)
 
-    def get_oxygen_data(self, bucket, before=None, do_average=False):
-        return get_data(self.data.get_oxygen_data(bucket, average=do_average), before, do_average)
+    def get_salinity_data(self, bucket: str, before=None, do_average=False):
+        if bucket == SHALLOW and self.shallow_bounds is None:
+            return [[], []]
+        bounds = self.__bucket_to_bounds(bucket)
+        return get_data(self.data.get_salinity_data(bounds, average=do_average), before, do_average)
 
-    def get_temperature_outliers(self, bucket=inlet_data.USED, before=None):
-        return get_outliers(self.data.get_temperature_data(bucket), bucket, before)
-
-    def get_salinity_outliers(self, bucket=inlet_data.USED, before=None):
-        return get_outliers(self.data.get_salinity_data(bucket), bucket, before)
-
-    def get_oxygen_outliers(self, bucket=inlet_data.USED, before=None):
-        return get_outliers(self.data.get_oxygen_data(bucket), bucket, before)
+    def get_oxygen_data(self, bucket: str, before=None, do_average=False):
+        if bucket == SHALLOW and self.shallow_bounds is None:
+            return [[], []]
+        bounds = self.__bucket_to_bounds(bucket)
+        return get_data(self.data.get_oxygen_data(bounds, average=do_average), before, do_average)
 
     def has_temperature_data(self):
-        return len(self.data.get_temperature_data(inlet_data.ALL)) > 0
+        bounds = self.__bucket_to_bounds(ALL)
+        return len(self.data.get_temperature_data(bounds)) > 0
 
     def has_salinity_data(self):
-        return len(self.data.get_salinity_data(inlet_data.ALL)) > 0
+        bounds = self.__bucket_to_bounds(ALL)
+        return len(self.data.get_salinity_data(bounds)) > 0
 
     def has_oxygen_data(self):
-        return len(self.data.get_oxygen_data(inlet_data.ALL)) > 0
+        bounds = self.__bucket_to_bounds(ALL)
+        return len(self.data.get_oxygen_data(bounds)) > 0
 
     def has_data_from(self, file_name):
         return os.path.basename(file_name).lower() in self.used_files
 
     def get_station_data(self, before=None):
-        data = self.data.get_temperature_data(inlet_data.ALL)
+        bounds = self.__bucket_to_bounds(ALL)
+        data = self.data.get_temperature_data(bounds)
         temperature_data = (
             filter(lambda x: x.time.year < before.year, data)
             if before is not None
             else data
         )
-        data = self.data.get_salinity_data(inlet_data.ALL)
+        data = self.data.get_salinity_data(bounds)
         salinity_data = (
             filter(lambda x: x.time.year < before.year, data)
             if before is not None
             else data
         )
-        data = self.data.get_oxygen_data(inlet_data.ALL)
+        data = self.data.get_oxygen_data(bounds)
         oxygen_data = (
             filter(lambda x: x.time.year < before.year, data)
             if before is not None
@@ -598,24 +615,9 @@ class Inlet(object):
             if t.replace(tzinfo=None) > datetime.datetime.now():
                 logging.warning(f"Data from {filename} is from the future: {t}")
                 continue
-            if self.is_surface(d):
-                category = inlet_data.SURFACE
-            elif self.is_shallow(d):
-                category = inlet_data.SHALLOW
-            elif self.is_deep(d):
-                category = inlet_data.DEEP
-            elif self.is_deeper(d):
-                category = inlet_data.DEEPER
-            elif self.is_deepest(d):
-                category = inlet_data.DEEPEST
-            else:
-                category = inlet_data.IGNORE
-            if not is_acceptable_quality(q):
-                category = inlet_data.IGNORE
             out.append(
                 inlet_data.InletData(
                     t,
-                    category,
                     d,
                     datum,
                     q,
@@ -893,15 +895,6 @@ class Inlet(object):
         salinity = data["Salinity (PSU)"]
         salinity_flag = data["Salinity flag"].map(hakai_quality)
 
-        bucket = depth.map(lambda d: (
-            inlet_data.SURFACE if self.is_surface(d) else
-            inlet_data.SHALLOW if self.is_shallow(d) else
-            inlet_data.DEEP if self.is_deep(d) else
-            inlet_data.DEEPER if self.is_deeper(d) else
-            inlet_data.DEEPEST if self.is_deepest(d) else
-            inlet_data.IGNORE
-        ))
-
         temperature_index = temperature.notna()
         salinity_index = salinity.notna()
         oxygen_index = oxygen_ml_l.notna()
@@ -911,17 +904,15 @@ class Inlet(object):
                 inlet_data.InletData(
                     time=t,
                     depth=d,
-                    bucket=b,
                     value=v,
                     quality=q,
                     longitude=lon,
                     latitude=lat,
                     filename=filename,
                 )
-                for t, d, b, v, q, lon, lat in zip(
+                for t, d, v, q, lon, lat in zip(
                     time[temperature_index],
                     depth[temperature_index],
-                    bucket[temperature_index],
                     temperature[temperature_index],
                     temperature_flag[temperature_index],
                     longitude[temperature_index],
@@ -935,17 +926,15 @@ class Inlet(object):
                 inlet_data.InletData(
                     time=t,
                     depth=d,
-                    bucket=b,
                     value=v,
                     quality=q,
                     longitude=lon,
                     latitude=lat,
                     filename=filename,
                 )
-                for t, d, b, v, q, lon, lat in zip(
+                for t, d, v, q, lon, lat in zip(
                     time[salinity_index],
                     depth[salinity_index],
-                    bucket[temperature_index],
                     salinity[salinity_index],
                     salinity_flag[salinity_index],
                     longitude[salinity_index],
@@ -959,17 +948,15 @@ class Inlet(object):
                 inlet_data.InletData(
                     time=t,
                     depth=d,
-                    bucket=b,
                     value=v,
                     quality=q,
                     longitude=lon,
                     latitude=lat,
                     filename=filename
                 )
-                for t, d, b, v, q, lon, lat in zip(
+                for t, d, v, q, lon, lat in zip(
                     time[oxygen_index],
                     depth[oxygen_index],
-                    bucket[temperature_index],
                     oxygen_ml_l[oxygen_index],
                     oxygen_flag[oxygen_index],
                     longitude[oxygen_index],

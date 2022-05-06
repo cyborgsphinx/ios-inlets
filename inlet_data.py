@@ -3,21 +3,11 @@ import datetime
 import logging
 import os
 import sqlite3
-from typing import List
+from typing import List, Tuple
 
 
 sqlite3.paramstyle = "named"
 DB_NAME = os.path.join("data", "inlet_data.db")
-SURFACE = "surface"
-SHALLOW = "shallow"
-DEEP = "deep"
-DEEPER = "deeper"
-DEEPEST = "deepest"
-IGNORE = "ignore"
-ALL = "all"
-USED = "used"
-USED_SURFACE = "used surface"
-USED_DEEP = "used deep"
 
 
 def _table_name(inlet_name: str) -> str:
@@ -27,7 +17,6 @@ def _table_name(inlet_name: str) -> str:
 @dataclass(frozen=True)
 class InletData:
     time: datetime.datetime
-    bucket: str
     depth: float
     value: float
     quality: int
@@ -40,7 +29,6 @@ class InletData:
     def as_dict(self):
         return {
             "time": self.time.isoformat(timespec="microseconds"),
-            "bucket": self.bucket,
             "depth": self.depth,
             "value": self.value,
             "quality": self.quality,
@@ -64,7 +52,7 @@ def _averaged(data: List[InletData]) -> List[InletData]:
         total, count = freqs[key]
         freqs[key] = (total + datum.value, count + 1)
     return [
-        InletData(d, USED, 0, total / count, 0, 0, 0, fn)
+        InletData(d, 0, total / count, 0, 0, 0, fn)
         for (fn, d), (total, count) in freqs.items()
     ]
 
@@ -101,7 +89,7 @@ class InletDb:
                 f"Integrity error inserting temperature data from {filename} into database for {self.name}"
             )
 
-    def get_temperature_data(self, bucket, average: bool = False) -> List[InletData]:
+    def get_temperature_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
         data = self.__get_data("temperature", bucket)
         if average:
             return _averaged(data)
@@ -125,7 +113,7 @@ class InletDb:
                 f"Integrity error inserting salinity data from {filename} into database for {self.name}"
             )
 
-    def get_salinity_data(self, bucket, average: bool = False) -> List[InletData]:
+    def get_salinity_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
         data = self.__get_data("salinity", bucket)
         if average:
             return _averaged(data)
@@ -149,7 +137,7 @@ class InletDb:
                 f"Integrity error inserting oxygen data from {filename} into database for {self.name}"
             )
 
-    def get_oxygen_data(self, bucket, average: bool = False) -> List[InletData]:
+    def get_oxygen_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
         data = self.__get_data("oxygen", bucket)
         if average:
             return _averaged(data)
@@ -169,7 +157,6 @@ class InletDb:
                     :time,
                     :depth,
                     :value,
-                    :bucket,
                     :quality,
                     :computed,
                     :assumed_density
@@ -190,7 +177,6 @@ class InletDb:
                     :time,
                     :depth,
                     :value,
-                    :bucket,
                     :quality,
                     :computed,
                     :assumed_density
@@ -198,41 +184,35 @@ class InletDb:
                 ({"kind": kind, **datum.as_dict()} for datum in data),
             )
 
-    def __get_data(self, kind: str, bucket: str) -> List[InletData]:
-        if bucket == ALL:
+    def __get_data(self, kind: str, bucket: Tuple[float, float]) -> List[InletData]:
+        min_depth, max_depth = bucket
+        if min_depth is None and max_depth is None:
             cursor = self.connection.execute(
                 f"""select * from {self.name}
                 where kind=:kind
                 """,
                 {"kind": kind},
             )
-        elif bucket == USED:
+        elif min_depth is None:
             cursor = self.connection.execute(
                 f"""select * from {self.name}
-                where kind=:kind and bucket!=:bucket
+                where kind=:kind and depth<=:max
                 """,
-                {"kind": kind, "bucket": IGNORE}
+                {"kind": kind, "max": max_depth},
             )
-        elif bucket == USED_SURFACE:
+        elif max_depth is None:
             cursor = self.connection.execute(
                 f"""select * from {self.name}
-                where kind=:kind and bucket in (:surface, :shallow)
+                where kind=:kind and depth>=:min
                 """,
-                {"kind": kind, "surface": SURFACE, "shallow": SHALLOW}
-            )
-        elif bucket == USED_DEEP:
-            cursor = self.connection.execute(
-                f"""select * from {self.name}
-                where kind=:kind and bucket in (:deep, :deeper, :deepest)
-                """,
-                {"kind": kind, "deep": DEEP, "deeper": DEEPER, "deepest": DEEPEST}
+                {"kind": kind, "min": min_depth},
             )
         else:
             cursor = self.connection.execute(
                 f"""select * from {self.name}
-                where kind=:kind and bucket=:bucket
+                where kind=:kind and depth>=:min and depth<=:max
                 """,
-                {"kind": kind, "bucket": bucket},
+                {"kind": kind, "min": min_depth, "max": max_depth},
             )
         return [
             InletData(
@@ -242,7 +222,6 @@ class InletDb:
                 time=datetime.datetime.fromisoformat(row["time"]),
                 depth=row["depth"],
                 value=row["value"],
-                bucket=row["bucket"],
                 quality=row["quality"],
                 computed=(row["computed"] > 0),
                 assumed_density=(row["assumed_density"] > 0),
@@ -263,7 +242,6 @@ class InletDb:
                         time text not null,
                         depth real not null,
                         value real not null,
-                        bucket text not null,
                         quality integer not null,
                         computed integer not null,
                         assumed_density integer not null
