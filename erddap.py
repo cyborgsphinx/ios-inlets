@@ -241,7 +241,7 @@ def convert_oxygen(oxygen, units, data):
     elif units.lower() in ["mg/l"]:
         oxygen_mg_per_ml = 1.429
         return oxygen / oxygen_mg_per_ml, COMPUTED
-    elif units.lower() in ["umol/kg", "mmol/m**3", "μmole/kg", "\\u00ce\\u00bcmole/kg"]:
+    elif units.lower() in ["umol/kg", "mmol/m**3", "μmole/kg", "\\u00ce\\u00bcmole/kg",  "\\u00c2\\u00b5mole/kg"]:
         out, assumed = convert.convert_umol_kg_to_mL_L(
             oxygen,
             data["longitude"],
@@ -251,6 +251,9 @@ def convert_oxygen(oxygen, units, data):
             data["aggregated_pressure"],
         )
         return out, ASSUMED if assumed else COMPUTED
+    elif units.lower() in ["umol/l", "μmole/l", "\\u00ce\\u00bcmole/l"]:
+        oxygen_umol_per_ml = 44.661
+        return oxygen / oxygen_umol_per_ml, COMPUTED
     else:
         print(f"Unknown units: {units}")
         return oxygen, UNASSIGNED
@@ -275,7 +278,7 @@ def combine_columns(data, desired_unit, units, new_column, columns, convert_fn):
             indexer = new_data[new_column].isna() & data[column].notna()
             # expect convert_fn to return a (data, metadata) pair
             column_data, column_metadata = convert_fn(
-                new_data[column],
+                new_data.loc[indexer, column],
                 units.at[0, column],
                 new_data.loc[indexer],
             )
@@ -383,7 +386,6 @@ def pull_data_for(inlet):
             )
             base, query = dl.split("?")
             dl = "?".join((base, urllib.parse.quote(query)))
-            print(dl)
             try:
                 units = pandas.read_csv(dl, nrows=1)
                 print(units)
