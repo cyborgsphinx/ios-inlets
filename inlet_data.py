@@ -22,7 +22,7 @@ class InletData:
     quality: int
     longitude: float
     latitude: float
-    filename: str
+    source: str
     computed: bool = False
     assumed_density: bool = False
 
@@ -34,7 +34,7 @@ class InletData:
             "quality": self.quality,
             "longitude": self.longitude,
             "latitude": self.latitude,
-            "filename": self.filename,
+            "source": self.source,
             "computed": self.computed,
             "assumed_density": self.assumed_density,
         }
@@ -44,9 +44,9 @@ def _averaged(data: List[InletData]) -> List[InletData]:
     """Perform daily vertical averaging inside depth categories."""
     freqs = {}
     for datum in data:
-        filename = datum.filename
+        source = datum.source
         date = datum.time.date()
-        key = (filename, date)
+        key = (source, date)
         if key not in freqs:
             freqs[key] = (0, 0)
         total, count = freqs[key]
@@ -84,9 +84,9 @@ class InletDb:
         try:
             self.__add_data(data, "temperature")
         except sqlite3.IntegrityError:
-            filename = data[0].filename
+            source = data[0].source
             logging.exception(
-                f"Integrity error inserting temperature data from {filename} into database for {self.name}"
+                f"Integrity error inserting temperature data from {source} into database for {self.name}"
             )
 
     def get_temperature_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
@@ -108,9 +108,9 @@ class InletDb:
         try:
             self.__add_data(data, "salinity")
         except sqlite3.IntegrityError:
-            filename = data[0].filename
+            source = data[0].source
             logging.exception(
-                f"Integrity error inserting salinity data from {filename} into database for {self.name}"
+                f"Integrity error inserting salinity data from {source} into database for {self.name}"
             )
 
     def get_salinity_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
@@ -132,9 +132,9 @@ class InletDb:
         try:
             self.__add_data(data, "oxygen")
         except sqlite3.IntegrityError:
-            filename = data[0].filename
+            source = data[0].source
             logging.exception(
-                f"Integrity error inserting oxygen data from {filename} into database for {self.name}"
+                f"Integrity error inserting oxygen data from {source} into database for {self.name}"
             )
 
     def get_oxygen_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
@@ -151,7 +151,7 @@ class InletDb:
                 insert into {self.name}
                 values (
                     :kind,
-                    :filename,
+                    :source,
                     :latitude,
                     :longitude,
                     :time,
@@ -171,7 +171,7 @@ class InletDb:
                 insert into {self.name}
                 values (
                     :kind,
-                    :filename,
+                    :source,
                     :latitude,
                     :longitude,
                     :time,
@@ -216,7 +216,7 @@ class InletDb:
             )
         return [
             InletData(
-                filename=row["filename"],
+                source=row["source"],
                 latitude=row["latitude"],
                 longitude=row["longitude"],
                 time=datetime.datetime.fromisoformat(row["time"]),
@@ -236,7 +236,7 @@ class InletDb:
                     f"""
                     create table {self.name} (
                         kind text not null,
-                        filename text not null,
+                        source text not null,
                         latitude real not null,
                         longitude real not null,
                         time text not null,

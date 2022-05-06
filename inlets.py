@@ -910,7 +910,7 @@ class Inlet(object):
                     quality=q,
                     longitude=lon,
                     latitude=lat,
-                    filename=filename,
+                    source=filename,
                 )
                 for t, d, v, q, lon, lat in zip(
                     time[temperature_index],
@@ -932,7 +932,7 @@ class Inlet(object):
                     quality=q,
                     longitude=lon,
                     latitude=lat,
-                    filename=filename,
+                    source=filename,
                 )
                 for t, d, v, q, lon, lat in zip(
                     time[salinity_index],
@@ -954,7 +954,7 @@ class Inlet(object):
                     quality=q,
                     longitude=lon,
                     latitude=lat,
-                    filename=filename
+                    source=filename
                 )
                 for t, d, v, q, lon, lat in zip(
                     time[oxygen_index],
@@ -981,7 +981,7 @@ class Inlet(object):
                     quality=q,
                     longitude=lon,
                     latitude=lat,
-                    filename=filename,
+                    source=filename,
                     computed=computed,
                     assumed_density=assumed,
                 )
@@ -1008,7 +1008,7 @@ class Inlet(object):
                     quality=q,
                     longitude=lon,
                     latitude=lat,
-                    filename=filename,
+                    source=filename,
                     computed=computed,
                     assumed_density=assumed,
                 )
@@ -1035,7 +1035,7 @@ class Inlet(object):
                     quality=q,
                     longitude=lon,
                     latitude=lat,
-                    filename=filename,
+                    source=filename,
                     computed=computed,
                     assumed_density=assumed,
                 )
