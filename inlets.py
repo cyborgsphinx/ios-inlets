@@ -15,6 +15,7 @@ from shapely.geometry import Point, Polygon
 from typing import Dict, List
 import xarray
 import ios_shell.shell as ios
+import erddap
 
 EXCEPTIONALLY_BIG = 9.9e36
 
@@ -966,11 +967,98 @@ class Inlet(object):
             ]
         )
 
+    def add_data_from_erddap(self, data):
+        temperature_index = data["aggregated_temperature"].map(lambda x: math.isfinite(x))
+        salinity_index = data["aggregated_salinity"].map(lambda x: math.isfinite(x))
+        oxygen_index = data["aggregated_oxygen"].map(lambda x: math.isfinite(x))
+
+        self.data.add_temperature_data(
+            [
+                inlet_data.InletData(
+                    time=t,
+                    depth=d,
+                    value=v,
+                    quality=q,
+                    longitude=lon,
+                    latitude=lat,
+                    filename=filename,
+                    computed=computed,
+                    assumed_density=assumed,
+                )
+                for t, d, v, q, lon, lat, filename, computed, assumed in zip(
+                    data.loc[temperature_index, "time"].map(get_datetime),
+                    data.loc[temperature_index, "depth"],
+                    data.loc[temperature_index, "aggregated_temperature"],
+                    data.loc[temperature_index, "aggregated_temperature_quality"],
+                    data.loc[temperature_index, "longitude"],
+                    data.loc[temperature_index, "latitude"],
+                    data.loc[temperature_index, "filename"],
+                    data.loc[temperature_index, "aggregated_temperature_metadata"].map(lambda x: x > 1),
+                    data.loc[temperature_index, "aggregated_temperature_metadata"].map(lambda x: x > 2),
+                )
+            ]
+        )
+
+        self.data.add_salinity_data(
+            [
+                inlet_data.InletData(
+                    time=t,
+                    depth=d,
+                    value=v,
+                    quality=q,
+                    longitude=lon,
+                    latitude=lat,
+                    filename=filename,
+                    computed=computed,
+                    assumed_density=assumed,
+                )
+                for t, d, v, q, lon, lat, filename, computed, assumed in zip(
+                    data.loc[salinity_index, "time"].map(get_datetime),
+                    data.loc[salinity_index, "depth"],
+                    data.loc[salinity_index, "aggregated_salinity"],
+                    data.loc[salinity_index, "aggregated_salinity_quality"],
+                    data.loc[salinity_index, "longitude"],
+                    data.loc[salinity_index, "latitude"],
+                    data.loc[salinity_index, "filename"],
+                    data.loc[salinity_index, "aggregated_salinity_metadata"].map(lambda x: x > 1),
+                    data.loc[salinity_index, "aggregated_salinity_metadata"].map(lambda x: x > 2),
+                )
+            ]
+        )
+
+        self.data.add_oxygen_data(
+            [
+                inlet_data.InletData(
+                    time=t,
+                    depth=d,
+                    value=v,
+                    quality=q,
+                    longitude=lon,
+                    latitude=lat,
+                    filename=filename,
+                    computed=computed,
+                    assumed_density=assumed,
+                )
+                for t, d, v, q, lon, lat, filename, computed, assumed in zip(
+                    data.loc[oxygen_index, "time"].map(get_datetime),
+                    data.loc[oxygen_index, "depth"],
+                    data.loc[oxygen_index, "aggregated_oxygen"],
+                    data.loc[oxygen_index, "aggregated_oxygen_quality"],
+                    data.loc[oxygen_index, "longitude"],
+                    data.loc[oxygen_index, "latitude"],
+                    data.loc[oxygen_index, "filename"],
+                    data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(lambda x: x > 1),
+                    data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(lambda x: x > 2),
+                )
+            ]
+        )
+
 
 def get_inlets(
     data_dir,
     from_saved=False,
     skip_netcdf=False,
+    from_erddap=False,
     inlet_names=[],
     drop_names=[],
     keep_names=[],
@@ -1005,6 +1093,11 @@ def get_inlets(
             else:
                 inlet_list.append(Inlet(name, area, polygon, boundaries, limits, clear_old_data=not from_saved))
     if not from_saved:
+        if from_erddap:
+            for inlet in inlet_list:
+                for data_frame in erddap.pull_data_for(inlet):
+                    inlet.add_data_from_erddap(data_frame)
+        """
         if not skip_netcdf:
             for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
                 for item in fnmatch.filter(files, "*.nc"):
@@ -1057,6 +1150,7 @@ def get_inlets(
                 if len(inside_inlet) == 0:
                     continue
                 inlet.add_data_from_csv(inside_inlet, file)
+        """
 
     return inlet_list
 
@@ -1066,9 +1160,10 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
+    parser.add_argument("-e", "--from-erddap", action="store_true")
     args = parser.parse_args()
     print("Preparing database")
-    get_inlets(args.data, from_saved=False, skip_netcdf=False)
+    get_inlets(args.data, from_saved=False, skip_netcdf=False, from_erddap=args.from_erddap)
 
 
 if __name__ == "__main__":

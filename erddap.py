@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+import logging
 from typing import List
 
+import convert
 from erddapy import ERDDAP
+import gsw
 import numpy
 import pandas
 import urllib
@@ -173,12 +176,27 @@ DBAR_SPELLINGS = [
     ]
 ]
 
+UMOL_KG_SPELLINGS = [
+    name.lower()
+    for name in [
+        "umol/kg",
+        "μmole/kg",
+        "mol/m",
+        "mol/m**3",
+        "\\u00ce\\u00bcmole/kg",
+        "\u00ce\u00bcmole/kg",
+        "\\u00c2\\u00b5mole/kg",
+        "\u00c2\u00b5mole/kg",
+    ]
+]
+
 def standardize_units(units):
     name = units.lower()
     return (
         "C" if name in CELSIUS_SPELLINGS
         else "PSU" if name in PSU_SPELLINGS
         else "dbar" if name in DBAR_SPELLINGS
+        else "umol/kg" if name in UMOL_KG_SPELLINGS
         else units
     )
 
@@ -214,14 +232,38 @@ def convert_salinity(salinity, units):
         return gsw.SP_from_SR(salinity * g_per_umol), COMPUTED
     else:
         print(f"Unknown units: {units}")
-        return salinity, UNALTERED
+        return salinity, UNASSIGNED
+
+
+def convert_oxygen(oxygen, units, data):
+    if units.lower() in ["ml/l"]:
+        return oxygen, UNALTERED
+    elif units.lower() in ["mg/l"]:
+        oxygen_mg_per_ml = 1.429
+        return oxygen / oxygen_mg_per_ml, COMPUTED
+    elif units.lower() in ["umol/kg", "mmol/m**3", "μmole/kg", "\\u00ce\\u00bcmole/kg"]:
+        out, assumed = convert.convert_umol_kg_to_mL_L(
+            oxygen,
+            data["longitude"],
+            data["latitude"],
+            data["aggregated_temperature"],
+            data["aggregated_salinity"],
+            data["aggregated_pressure"],
+        )
+        return out, ASSUMED if assumed else COMPUTED
+    else:
+        print(f"Unknown units: {units}")
+        return oxygen, UNASSIGNED
 
 
 def combine_columns(data, desired_unit, units, new_column, columns, convert_fn):
     new_metadata = new_column + "_metadata"
-    nulls = numpy.full(len(data), numpy.nan)
-    emptys = numpy.full(len(data), UNASSIGNED)
-    new_data = data.assign(**{new_column: pandas.Series(nulls), new_metadata: pandas.Series(emptys)})
+    new_quality = new_column + "_quality"
+    new_data = data.assign(**{
+        new_column: lambda _: numpy.nan,
+        new_metadata: lambda _: UNASSIGNED,
+        new_quality: lambda _: 0,
+    })
     standard_desired_unit = standardize_units(desired_unit)
     for column in columns:
         if standardize_units(units.at[0, column]) == standard_desired_unit:
@@ -232,15 +274,27 @@ def combine_columns(data, desired_unit, units, new_column, columns, convert_fn):
         else:
             indexer = new_data[new_column].isna() & data[column].notna()
             # expect convert_fn to return a (data, metadata) pair
-            column_data, column_metadata = convert_fn(new_data[column], units.at[0, column], new_data)
+            column_data, column_metadata = convert_fn(
+                new_data[column],
+                units.at[0, column],
+                new_data.loc[indexer],
+            )
             new_data.loc[indexer, new_column] = column_data
             new_data.loc[indexer, new_metadata] = column_metadata
     return new_data
 
 
 def process_data(data, variable_map, units):
-    with_temp = combine_columns(
+    with_pressure = combine_columns(
         data,
+        VARIABLES["extra"]["pressure"].units,
+        units,
+        "aggregated_pressure",
+        variable_map["pressure"],
+        lambda x, units, df: (x, UNALTERED),
+    )
+    with_temp = combine_columns(
+        with_pressure,
         VARIABLES["optional"]["temperature"].units,
         units,
         "aggregated_temperature",
@@ -255,7 +309,15 @@ def process_data(data, variable_map, units):
         variable_map["salinity"],
         lambda x, from_units, df: convert_salinity(x, from_units)
     )
-    print(with_salinity)
+    with_oxygen = combine_columns(
+        with_salinity,
+        VARIABLES["optional"]["oxygen"].units,
+        units,
+        "aggregated_oxygen",
+        variable_map["oxygen"],
+        lambda x, from_units, df: convert_oxygen(x, from_units, df)
+    )
+    return with_oxygen
 
 
 def find_variables_for(variable_data, server, dataset):
@@ -274,72 +336,65 @@ def find_variables_for(variable_data, server, dataset):
     return list(set(found_names))
 
 
-def pull_data_for(inlet_list):
+def pull_data_for(inlet):
     for server in SERVERS:
         server_url = f"{server}/erddap"
         print("Reading data from", server_url)
         e = ERDDAP(server=server_url, protocol="tabledap")
-        for inlet in inlet_list:
-            parameters = inlet.bounding_box()
-            search_url = e.get_search_url(response="csv", **parameters)
-            results = pandas.read_csv(search_url)
-            for dataset in results["Dataset ID"].values:
-                info_url = e.get_info_url(dataset_id=dataset, response="csv")
-                info = pandas.read_csv(info_url)
-                print(dataset)
-                name_map = {}
+        parameters = inlet.bounding_box()
+        search_url = e.get_search_url(response="csv", **parameters)
+        results = pandas.read_csv(search_url)
+        for dataset in results["Dataset ID"].values:
+            info_url = e.get_info_url(dataset_id=dataset, response="csv")
+            info = pandas.read_csv(info_url)
+            print(dataset)
+            name_map = {}
 
-                for name, variable in VARIABLES["required"].items():
-                    name_map[name] = find_variables_for(variable, e, dataset)
-                    print(f"{name}: {name_map[name]}")
-                if not all(
-                    len(name_map[name]) > 0
-                    for name in VARIABLES["required"].keys()
-                ):
-                    print(f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}")
-                    continue
+            for name, variable in VARIABLES["required"].items():
+                name_map[name] = find_variables_for(variable, e, dataset)
+                print(f"{name}: {name_map[name]}")
+            if not all(
+                len(name_map[name]) > 0
+                for name in VARIABLES["required"].keys()
+            ):
+                print(f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}")
+                continue
 
-                for name, variable in VARIABLES["optional"].items():
-                    name_map[name] = find_variables_for(variable, e, dataset)
-                    print(f"{name}: {name_map[name]}")
-                if not any(
-                    len(name_map[name]) > 0
-                    for name in VARIABLES["optional"].keys()
-                ):
-                    print(f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}")
-                    continue
+            for name, variable in VARIABLES["optional"].items():
+                name_map[name] = find_variables_for(variable, e, dataset)
+                print(f"{name}: {name_map[name]}")
+            if not any(
+                len(name_map[name]) > 0
+                for name in VARIABLES["optional"].keys()
+            ):
+                print(f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}")
+                continue
 
-                for name, variable in VARIABLES["extra"].items():
-                    name_map[name] = find_variables_for(variable, e, dataset)
-                    print(f"{name}: {name_map[name]}")
+            for name, variable in VARIABLES["extra"].items():
+                name_map[name] = find_variables_for(variable, e, dataset)
+                print(f"{name}: {name_map[name]}")
 
-                usable_variables = [item for value in name_map.values() for item in value]
-                dl = e.get_download_url(
-                    dataset_id=dataset,
-                    variables=["filename"] + usable_variables,
-                    response="csv",
-                    constraints=search_to_download(parameters),
-                )
-                base, query = dl.split("?")
-                dl = "?".join((base, urllib.parse.quote(query)))
-                print(dl)
-                try:
-                    units = pandas.read_csv(dl, nrows=1)
-                    print(units)
-                    with pandas.read_csv(dl, chunksize=CHUNKSIZE, skiprows=(1,)) as reader:
-                        for chunk in reader:
-                            process_data(chunk, name_map, units)
-                except urllib.error.HTTPError as err:
-                    if err.code == 404:
-                        print(f"{dataset} turned up in advanced search despite not having data from {inlet.name}")
-                    else:
-                        raise err
-
-
-def main():
-    import inlets
-    inlet_list = inlets.get_inlets("data", from_saved=True)
-    pull_data_for(inlet_list[:1])
+            usable_variables = [item for value in name_map.values() for item in value]
+            dl = e.get_download_url(
+                dataset_id=dataset,
+                variables=["filename"] + usable_variables,
+                response="csv",
+                constraints=search_to_download(parameters),
+            )
+            base, query = dl.split("?")
+            dl = "?".join((base, urllib.parse.quote(query)))
+            print(dl)
+            try:
+                units = pandas.read_csv(dl, nrows=1)
+                print(units)
+                with pandas.read_csv(dl, chunksize=CHUNKSIZE, skiprows=(1,)) as reader:
+                    for chunk in reader:
+                        yield process_data(chunk, name_map, units)
+            except urllib.error.HTTPError as err:
+                if err.code == 404:
+                    logging.info(f"{dataset} turned up in advanced search despite not having data from {inlet.name}")
+                else:
+                    raise err
 
 
 if __name__ == "__main__":
