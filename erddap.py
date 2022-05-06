@@ -231,7 +231,7 @@ def convert_salinity(salinity, units):
         g_per_umol = 58.44 / 1000 / 1000
         return gsw.SP_from_SR(salinity * g_per_umol), COMPUTED
     else:
-        print(f"Unknown units: {units}")
+        logging.warning(f"Unknown units: {units}")
         return salinity, UNASSIGNED
 
 
@@ -255,7 +255,7 @@ def convert_oxygen(oxygen, units, data):
         oxygen_umol_per_ml = 44.661
         return oxygen / oxygen_umol_per_ml, COMPUTED
     else:
-        print(f"Unknown units: {units}")
+        logging.warning(f"Unknown units: {units}")
         return oxygen, UNASSIGNED
 
 
@@ -342,7 +342,7 @@ def find_variables_for(variable_data, server, dataset):
 def pull_data_for(inlet):
     for server in SERVERS:
         server_url = f"{server}/erddap"
-        print("Reading data from", server_url)
+        logging.info("Reading data from", server_url)
         e = ERDDAP(server=server_url, protocol="tabledap")
         parameters = inlet.bounding_box()
         search_url = e.get_search_url(response="csv", **parameters)
@@ -350,32 +350,32 @@ def pull_data_for(inlet):
         for dataset in results["Dataset ID"].values:
             info_url = e.get_info_url(dataset_id=dataset, response="csv")
             info = pandas.read_csv(info_url)
-            print(dataset)
+            logging.info(dataset)
             name_map = {}
 
             for name, variable in VARIABLES["required"].items():
                 name_map[name] = find_variables_for(variable, e, dataset)
-                print(f"{name}: {name_map[name]}")
+                logging.debug(f"{name}: {name_map[name]}")
             if not all(
                 len(name_map[name]) > 0
                 for name in VARIABLES["required"].keys()
             ):
-                print(f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}")
+                logging.info(f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}")
                 continue
 
             for name, variable in VARIABLES["optional"].items():
                 name_map[name] = find_variables_for(variable, e, dataset)
-                print(f"{name}: {name_map[name]}")
+                logging.debug(f"{name}: {name_map[name]}")
             if not any(
                 len(name_map[name]) > 0
                 for name in VARIABLES["optional"].keys()
             ):
-                print(f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}")
+                logging.info(f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}")
                 continue
 
             for name, variable in VARIABLES["extra"].items():
                 name_map[name] = find_variables_for(variable, e, dataset)
-                print(f"{name}: {name_map[name]}")
+                logging.debug(f"{name}: {name_map[name]}")
 
             usable_variables = [item for value in name_map.values() for item in value]
             dl = e.get_download_url(
@@ -388,7 +388,6 @@ def pull_data_for(inlet):
             dl = "?".join((base, urllib.parse.quote(query)))
             try:
                 units = pandas.read_csv(dl, nrows=1)
-                print(units)
                 with pandas.read_csv(dl, chunksize=CHUNKSIZE, skiprows=(1,)) as reader:
                     for chunk in reader:
                         yield process_data(chunk, name_map, units)
