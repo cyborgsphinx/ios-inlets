@@ -278,11 +278,17 @@ def combine_columns(data, desired_unit, units, new_column, columns, convert_fn, 
     for column in columns:
         if len(desired_unit) == 0 or standardize_units(units.at[0, column]) == standard_desired_unit:
             # overwrite any converted data with something trusted
-            indexer = new_data[new_column].isna() & (new_data[new_metadata] != UNALTERED)
+            if isinstance(default, float):
+                indexer = new_data[new_column].isna() & (new_data[new_metadata] != UNALTERED)
+            else:
+                indexer = new_data[new_column] == default
             new_data.loc[indexer, new_column] = new_data[column]
             new_data.loc[indexer, new_metadata] = UNALTERED
         else:
-            indexer = new_data[new_column].isna() & data[column].notna()
+            if isinstance(default, float):
+                indexer = new_data[new_column].isna() & data[column].notna()
+            else:
+                indexer = (new_data[new_column] == default) & (data[column] != default)
             # expect convert_fn to return a (data, metadata) pair
             column_data, column_metadata = convert_fn(
                 new_data.loc[indexer, column],
