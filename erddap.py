@@ -148,9 +148,9 @@ VARIABLES = {
 }
 
 SERVERS = [
-    "http://localhost:8080", # for testing
-    #"https://data.cioospacific.ca", # CIOOS pacific, including IOS
-    #"https://catalogue.hakai.org", # Hakai
+    #"http://localhost:8080", # for testing
+    "https://data.cioospacific.ca", # CIOOS pacific, including IOS
+    "https://catalogue.hakai.org", # Hakai
     #"https://salishsea.eos.ubc.ca", # UBC
 ]
 
@@ -362,11 +362,27 @@ def pull_data_for(inlet):
         e = ERDDAP(server=server_url, protocol="tabledap")
         parameters = inlet.bounding_box()
         search_url = e.get_search_url(response="csv", **parameters)
-        results = pandas.read_csv(search_url)
+        try:
+            results = pandas.read_csv(search_url)
+        except urllib.error.HTTPError as err:
+            if err.code in [500]:
+                logging.warning(f"{server_url} is unavailable for searching")
+                continue
+            else:
+                logging.error(f"{search_url} returned error {err.code}: {err.reason}")
+                raise err
         for dataset in results["Dataset ID"].values:
             info_url = e.get_info_url(dataset_id=dataset, response="csv")
-            info = pandas.read_csv(info_url)
-            logging.info(dataset)
+            try:
+                info = pandas.read_csv(info_url)
+            except urllib.error.HTTPError as err:
+                if err.code in [500]:
+                    logging.warning(f"{server_url} failed to retrieve info for {dataset}")
+                    continue
+                else:
+                    logging.error(f"{info_url} returned error {err.code}: {err.reason}")
+                    raise err
+            logging.info(f"reading from {server_url}: {dataset}")
             name_map = {}
 
             for name, variable in VARIABLES["required"].items():
@@ -408,7 +424,7 @@ def pull_data_for(inlet):
                     for chunk in reader:
                         yield process_data(chunk, name_map, units, dataset)
             except urllib.error.HTTPError as err:
-                if err.code == 404:
+                if err.code in [404]:
                     logging.info(f"{dataset} turned up in advanced search despite not having data from {inlet.name}")
                 else:
                     logging.error(f"{dl} returned error {err.code}: {err.reason}")
