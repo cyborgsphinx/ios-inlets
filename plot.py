@@ -512,7 +512,8 @@ def main():
     parser = argparse.ArgumentParser()
     # inlet retrieval args
     parser.add_argument("-r", "--from-saved", action="store_true")
-    parser.add_argument("-n", "--skip-netcdf", action="store_true")
+    parser.add_argument("-n", "--from-netcdf", action="store_true")
+    parser.add_argument("-e", "--from-erddap", action="store_true")
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     # plot args
     parser.add_argument("-l", "--no-limits", action="store_true")
@@ -527,11 +528,12 @@ def main():
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(
         args.data,
-        args.from_saved,
-        args.skip_netcdf,
-        args.inlet_name,
-        args.remove_inlet_name,
-        args.limit_name,
+        from_saved=args.from_saved,
+        from_netcdf=args.from_netcdf,
+        from_erddap=args.from_erddap,
+        inlet_names=args.inlet_name,
+        drop_names=args.remove_inlet_name,
+        keep_names=args.limit_name,
     )
     plt.figure(figsize=(8, 6))
     if args.plot_all:

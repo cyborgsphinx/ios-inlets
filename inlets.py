@@ -1058,7 +1058,7 @@ class Inlet(object):
 def get_inlets(
     data_dir,
     from_saved=False,
-    skip_netcdf=False,
+    from_netcdf=False,
     from_erddap=False,
     inlet_names=[],
     drop_names=[],
@@ -1098,8 +1098,8 @@ def get_inlets(
             for inlet in inlet_list:
                 for data_frame in erddap.pull_data_for(inlet):
                     inlet.add_data_from_erddap(data_frame)
-        """
-        if not skip_netcdf:
+
+        if from_netcdf:
             for root, _, files in os.walk(os.path.join(data_dir, "netCDF_Data")):
                 for item in fnmatch.filter(files, "*.nc"):
                     file_name = os.path.join(root, item)
@@ -1151,7 +1151,6 @@ def get_inlets(
                 if len(inside_inlet) == 0:
                     continue
                 inlet.add_data_from_csv(inside_inlet, file)
-        """
 
     return inlet_list
 
@@ -1162,9 +1161,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     parser.add_argument("-e", "--from-erddap", action="store_true")
+    parser.add_argument("-n", "--from-netcdf", action="store_true")
     args = parser.parse_args()
     print("Preparing database")
-    get_inlets(args.data, from_saved=False, skip_netcdf=False, from_erddap=args.from_erddap)
+    get_inlets(args.data, from_saved=False, from_netcdf=args.from_netcdf, from_erddap=args.from_erddap)
 
 
 if __name__ == "__main__":
