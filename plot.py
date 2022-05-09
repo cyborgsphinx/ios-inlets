@@ -465,7 +465,7 @@ def chart_monthly_sample(inlet: inlets.Inlet):
         month = months[datum.time.month]
         if year not in files[month]:
             files[month][year] = set()
-        files[month][year].add(datum.filename)
+        files[month][year].add(datum.source)
     year_range = max_year - min_year + 1
     values = []
     for _ in range(year_range):

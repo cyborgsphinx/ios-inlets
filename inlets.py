@@ -526,7 +526,7 @@ class Inlet(object):
             year = datum.time.year
             if year not in stations:
                 stations[year] = set()
-            stations[year].add(datum.filename)
+            stations[year].add(datum.source)
         return stations
 
     def contains(self, latitude=None, longitude=None):
@@ -968,9 +968,10 @@ class Inlet(object):
         )
 
     def add_data_from_erddap(self, data):
-        temperature_index = data["aggregated_temperature"].map(lambda x: math.isfinite(x))
-        salinity_index = data["aggregated_salinity"].map(lambda x: math.isfinite(x))
-        oxygen_index = data["aggregated_oxygen"].map(lambda x: math.isfinite(x))
+        depth_index = data["depth"].map(math.isfinite)
+        temperature_index = data["aggregated_temperature"].map(math.isfinite) & depth_index
+        salinity_index = data["aggregated_salinity"].map(math.isfinite) & depth_index
+        oxygen_index = data["aggregated_oxygen"].map(math.isfinite) & depth_index
 
         self.data.add_temperature_data(
             [
@@ -992,7 +993,7 @@ class Inlet(object):
                     data.loc[temperature_index, "aggregated_temperature_quality"],
                     data.loc[temperature_index, "longitude"],
                     data.loc[temperature_index, "latitude"],
-                    data.loc[temperature_index, "filename"],
+                    data.loc[temperature_index, "source"],
                     data.loc[temperature_index, "aggregated_temperature_metadata"].map(lambda x: x > 1),
                     data.loc[temperature_index, "aggregated_temperature_metadata"].map(lambda x: x > 2),
                 )
@@ -1019,7 +1020,7 @@ class Inlet(object):
                     data.loc[salinity_index, "aggregated_salinity_quality"],
                     data.loc[salinity_index, "longitude"],
                     data.loc[salinity_index, "latitude"],
-                    data.loc[salinity_index, "filename"],
+                    data.loc[salinity_index, "source"],
                     data.loc[salinity_index, "aggregated_salinity_metadata"].map(lambda x: x > 1),
                     data.loc[salinity_index, "aggregated_salinity_metadata"].map(lambda x: x > 2),
                 )
@@ -1046,7 +1047,7 @@ class Inlet(object):
                     data.loc[oxygen_index, "aggregated_oxygen_quality"],
                     data.loc[oxygen_index, "longitude"],
                     data.loc[oxygen_index, "latitude"],
-                    data.loc[oxygen_index, "filename"],
+                    data.loc[oxygen_index, "source"],
                     data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(lambda x: x > 1),
                     data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(lambda x: x > 2),
                 )

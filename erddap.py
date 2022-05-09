@@ -54,6 +54,13 @@ VARIABLES = {
             long_names=["depth", "instrument_depth"],
             fallback_names=[],
         ),
+        "source": VariableData(
+            ioos_category="identifier",
+            units="",
+            standard_names=["file_name"],
+            long_names=["filename"],
+            fallback_names=["filename"],
+        )
     },
     "optional": {
         "temperature": VariableData(
@@ -259,17 +266,17 @@ def convert_oxygen(oxygen, units, data):
         return oxygen, UNASSIGNED
 
 
-def combine_columns(data, desired_unit, units, new_column, columns, convert_fn):
+def combine_columns(data, desired_unit, units, new_column, columns, convert_fn, default=numpy.nan):
     new_metadata = new_column + "_metadata"
     new_quality = new_column + "_quality"
     new_data = data.assign(**{
-        new_column: lambda _: numpy.nan,
+        new_column: lambda _: default,
         new_metadata: lambda _: UNASSIGNED,
         new_quality: lambda _: 0,
     })
     standard_desired_unit = standardize_units(desired_unit)
     for column in columns:
-        if standardize_units(units.at[0, column]) == standard_desired_unit:
+        if len(desired_unit) == 0 or standardize_units(units.at[0, column]) == standard_desired_unit:
             # overwrite any converted data with something trusted
             indexer = new_data[new_column].isna() & (new_data[new_metadata] != UNALTERED)
             new_data.loc[indexer, new_column] = new_data[column]
@@ -287,14 +294,23 @@ def combine_columns(data, desired_unit, units, new_column, columns, convert_fn):
     return new_data
 
 
-def process_data(data, variable_map, units):
-    with_pressure = combine_columns(
+def process_data(data, variable_map, units, dataset_name):
+    with_source = combine_columns(
         data,
+        VARIABLES["required"]["source"].units,
+        units,
+        "source",
+        variable_map["source"],
+        lambda x, _units, _df: (x, UNALTERED),
+        default=dataset_name,
+    )
+    with_pressure = combine_columns(
+        with_source,
         VARIABLES["extra"]["pressure"].units,
         units,
         "aggregated_pressure",
         variable_map["pressure"],
-        lambda x, units, df: (x, UNALTERED),
+        lambda x, _units, _df: (x, UNALTERED),
     )
     with_temp = combine_columns(
         with_pressure,
@@ -302,7 +318,7 @@ def process_data(data, variable_map, units):
         units,
         "aggregated_temperature",
         variable_map["temperature"],
-        lambda x, units, df: (x, UNALTERED),
+        lambda x, _units, _df: (x, UNALTERED),
     )
     with_salinity = combine_columns(
         with_temp,
@@ -380,7 +396,7 @@ def pull_data_for(inlet):
             usable_variables = [item for value in name_map.values() for item in value]
             dl = e.get_download_url(
                 dataset_id=dataset,
-                variables=["filename"] + usable_variables,
+                variables=usable_variables,
                 response="csv",
                 constraints=search_to_download(parameters),
             )
@@ -390,11 +406,12 @@ def pull_data_for(inlet):
                 units = pandas.read_csv(dl, nrows=1)
                 with pandas.read_csv(dl, chunksize=CHUNKSIZE, skiprows=(1,)) as reader:
                     for chunk in reader:
-                        yield process_data(chunk, name_map, units)
+                        yield process_data(chunk, name_map, units, dataset)
             except urllib.error.HTTPError as err:
                 if err.code == 404:
                     logging.info(f"{dataset} turned up in advanced search despite not having data from {inlet.name}")
                 else:
+                    logging.error(f"{dl} returned error {err.code}: {err.reason}")
                     raise err
 
 
