@@ -89,7 +89,9 @@ class InletDb:
                 f"Integrity error inserting temperature data from {source} into database for {self.name}"
             )
 
-    def get_temperature_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
+    def get_temperature_data(
+        self, bucket: Tuple[float, float], average: bool = False
+    ) -> List[InletData]:
         data = self.__get_data("temperature", bucket)
         if average:
             return _averaged(data)
@@ -113,7 +115,9 @@ class InletDb:
                 f"Integrity error inserting salinity data from {source} into database for {self.name}"
             )
 
-    def get_salinity_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
+    def get_salinity_data(
+        self, bucket: Tuple[float, float], average: bool = False
+    ) -> List[InletData]:
         data = self.__get_data("salinity", bucket)
         if average:
             return _averaged(data)
@@ -137,7 +141,9 @@ class InletDb:
                 f"Integrity error inserting oxygen data from {source} into database for {self.name}"
             )
 
-    def get_oxygen_data(self, bucket: Tuple[float, float], average: bool = False) -> List[InletData]:
+    def get_oxygen_data(
+        self, bucket: Tuple[float, float], average: bool = False
+    ) -> List[InletData]:
         data = self.__get_data("oxygen", bucket)
         if average:
             return _averaged(data)

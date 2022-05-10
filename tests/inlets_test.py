@@ -127,7 +127,9 @@ def test_find_depth_data(source):
     ],
 )
 def test_inlet_contains(polygon, point):
-    inlet = inlets.Inlet("Test Inlet", "Test Area", polygon, [1, 2, 3], {}, db_name=DB_NAME)
+    inlet = inlets.Inlet(
+        "Test Inlet", "Test Area", polygon, [1, 2, 3], {}, db_name=DB_NAME
+    )
     assert inlet.contains(**point)
 
 

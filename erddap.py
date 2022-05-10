@@ -16,13 +16,17 @@ UNALTERED = 1
 COMPUTED = 2
 ASSUMED = 3
 
+
 @dataclass
 class VariableData:
     ioos_category: str
     units: str
     standard_names: List[str]
-    long_names: List[str] # some datasets do not have properly configured standard names
-    fallback_names: List[str] # sometimes the erddap server is poorly configured and running locally
+    # some datasets do not have properly configured standard names
+    long_names: List[str]
+    # sometimes the erddap server is poorly configured and running locally
+    fallback_names: List[str]
+
 
 VARIABLES = {
     "required": {
@@ -60,7 +64,7 @@ VARIABLES = {
             standard_names=["file_name"],
             long_names=["filename"],
             fallback_names=["filename"],
-        )
+        ),
     },
     "optional": {
         "temperature": VariableData(
@@ -144,14 +148,14 @@ VARIABLES = {
             long_names=[],
             fallback_names=[],
         ),
-    }
+    },
 }
 
 SERVERS = [
-    #"http://localhost:8080", # for testing
-    "https://data.cioospacific.ca", # CIOOS pacific, including IOS
-    "https://catalogue.hakai.org", # Hakai
-    #"https://salishsea.eos.ubc.ca", # UBC
+    # "http://localhost:8080", # for testing
+    "https://data.cioospacific.ca",  # CIOOS pacific, including IOS
+    "https://catalogue.hakai.org",  # Hakai
+    # "https://salishsea.eos.ubc.ca", # UBC
 ]
 
 CELSIUS_SPELLINGS = [
@@ -197,13 +201,18 @@ UMOL_KG_SPELLINGS = [
     ]
 ]
 
+
 def standardize_units(units):
     name = units.lower()
     return (
-        "C" if name in CELSIUS_SPELLINGS
-        else "PSU" if name in PSU_SPELLINGS
-        else "dbar" if name in DBAR_SPELLINGS
-        else "umol/kg" if name in UMOL_KG_SPELLINGS
+        "C"
+        if name in CELSIUS_SPELLINGS
+        else "PSU"
+        if name in PSU_SPELLINGS
+        else "dbar"
+        if name in DBAR_SPELLINGS
+        else "umol/kg"
+        if name in UMOL_KG_SPELLINGS
         else units
     )
 
@@ -223,10 +232,7 @@ def search_to_download_key(key):
 
 
 def search_to_download(table):
-    return {
-        search_to_download_key(k): v
-        for k, v in table.items()
-    }
+    return {search_to_download_key(k): v for k, v in table.items()}
 
 
 def convert_salinity(salinity, units):
@@ -248,7 +254,13 @@ def convert_oxygen(oxygen, units, data):
     elif units.lower() in ["mg/l"]:
         oxygen_mg_per_ml = 1.429
         return oxygen / oxygen_mg_per_ml, COMPUTED
-    elif units.lower() in ["umol/kg", "mmol/m**3", "μmole/kg", "\\u00ce\\u00bcmole/kg",  "\\u00c2\\u00b5mole/kg"]:
+    elif units.lower() in [
+        "umol/kg",
+        "mmol/m**3",
+        "μmole/kg",
+        "\\u00ce\\u00bcmole/kg",
+        "\\u00c2\\u00b5mole/kg",
+    ]:
         out, assumed = convert.convert_umol_kg_to_mL_L(
             oxygen,
             data["longitude"],
@@ -266,20 +278,29 @@ def convert_oxygen(oxygen, units, data):
         return oxygen, UNASSIGNED
 
 
-def combine_columns(data, desired_unit, units, new_column, columns, convert_fn, default=numpy.nan):
+def combine_columns(
+    data, desired_unit, units, new_column, columns, convert_fn, default=numpy.nan
+):
     new_metadata = new_column + "_metadata"
     new_quality = new_column + "_quality"
-    new_data = data.assign(**{
-        new_column: lambda _: default,
-        new_metadata: lambda _: UNASSIGNED,
-        new_quality: lambda _: 0,
-    })
+    new_data = data.assign(
+        **{
+            new_column: lambda _: default,
+            new_metadata: lambda _: UNASSIGNED,
+            new_quality: lambda _: 0,
+        }
+    )
     standard_desired_unit = standardize_units(desired_unit)
     for column in columns:
-        if len(desired_unit) == 0 or standardize_units(units.at[0, column]) == standard_desired_unit:
+        if (
+            len(desired_unit) == 0
+            or standardize_units(units.at[0, column]) == standard_desired_unit
+        ):
             # overwrite any converted data with something trusted
             if isinstance(default, float):
-                indexer = new_data[new_column].isna() & (new_data[new_metadata] != UNALTERED)
+                indexer = new_data[new_column].isna() & (
+                    new_data[new_metadata] != UNALTERED
+                )
             else:
                 indexer = new_data[new_column] == default
             new_data.loc[indexer, new_column] = new_data[column]
@@ -332,7 +353,7 @@ def process_data(data, variable_map, units, dataset_name):
         units,
         "aggregated_salinity",
         variable_map["salinity"],
-        lambda x, from_units, df: convert_salinity(x, from_units)
+        lambda x, from_units, df: convert_salinity(x, from_units),
     )
     with_oxygen = combine_columns(
         with_salinity,
@@ -340,15 +361,19 @@ def process_data(data, variable_map, units, dataset_name):
         units,
         "aggregated_oxygen",
         variable_map["oxygen"],
-        lambda x, from_units, df: convert_oxygen(x, from_units, df)
+        lambda x, from_units, df: convert_oxygen(x, from_units, df),
     )
     return with_oxygen
 
 
 def find_variables_for(variable_data, server, dataset):
-    found_names = server.get_var_by_attr(dataset_id=dataset, ioos_category=variable_data.ioos_category)
+    found_names = server.get_var_by_attr(
+        dataset_id=dataset, ioos_category=variable_data.ioos_category
+    )
     for standard_name in variable_data.standard_names:
-        found_names += server.get_var_by_attr(dataset_id=dataset, standard_name=standard_name)
+        found_names += server.get_var_by_attr(
+            dataset_id=dataset, standard_name=standard_name
+        )
     for long_name in variable_data.long_names:
         found_names += server.get_var_by_attr(dataset_id=dataset, long_name=long_name)
     if len(found_names) == 0:
@@ -383,7 +408,9 @@ def pull_data_for(inlet):
                 info = pandas.read_csv(info_url)
             except urllib.error.HTTPError as err:
                 if err.code in [500]:
-                    logging.warning(f"{server_url} failed to retrieve info for {dataset}")
+                    logging.warning(
+                        f"{server_url} failed to retrieve info for {dataset}"
+                    )
                     continue
                 else:
                     logging.error(f"{info_url} returned error {err.code}: {err.reason}")
@@ -395,20 +422,22 @@ def pull_data_for(inlet):
                 name_map[name] = find_variables_for(variable, e, dataset)
                 logging.debug(f"{name}: {name_map[name]}")
             if not all(
-                len(name_map[name]) > 0
-                for name in VARIABLES["required"].keys()
+                len(name_map[name]) > 0 for name in VARIABLES["required"].keys()
             ):
-                logging.info(f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}")
+                logging.info(
+                    f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}"
+                )
                 continue
 
             for name, variable in VARIABLES["optional"].items():
                 name_map[name] = find_variables_for(variable, e, dataset)
                 logging.debug(f"{name}: {name_map[name]}")
             if not any(
-                len(name_map[name]) > 0
-                for name in VARIABLES["optional"].keys()
+                len(name_map[name]) > 0 for name in VARIABLES["optional"].keys()
             ):
-                logging.info(f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}")
+                logging.info(
+                    f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}"
+                )
                 continue
 
             for name, variable in VARIABLES["extra"].items():
@@ -431,7 +460,9 @@ def pull_data_for(inlet):
                         yield process_data(chunk, name_map, units, dataset)
             except urllib.error.HTTPError as err:
                 if err.code in [404]:
-                    logging.info(f"{dataset} turned up in advanced search despite not having data from {inlet.name}")
+                    logging.info(
+                        f"{dataset} turned up in advanced search despite not having data from {inlet.name}"
+                    )
                 else:
                     logging.error(f"{dl} returned error {err.code}: {err.reason}")
                     raise err

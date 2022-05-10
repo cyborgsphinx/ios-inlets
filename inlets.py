@@ -456,35 +456,54 @@ class Inlet(object):
 
     def __bucket_to_bounds(self, bucket: str):
         return (
-            (None, None) if bucket == ALL else
-            self.surface_bounds if bucket == SURFACE or bucket == USED_SURFACE and self.shallow_bounds is None else
-            self.shallow_bounds if bucket == SHALLOW else
-            self.deep_bounds if bucket == DEEP else
-            self.deeper_bounds if bucket == DEEPER else
-            self.deepest_bounds if bucket == DEEPEST else
-            (self.shallow_bounds[1], self.deep_bounds[0]) if bucket == IGNORE else
-            (self.surface_bounds[0], self.shallow_bounds[1]) if bucket == USED_SURFACE else
-            (self.deep_bounds[0], self.deepest_bounds[1]) if bucket == USED_DEEP else
-            None
+            (None, None)
+            if bucket == ALL
+            else self.surface_bounds
+            if bucket == SURFACE
+            or bucket == USED_SURFACE
+            and self.shallow_bounds is None
+            else self.shallow_bounds
+            if bucket == SHALLOW
+            else self.deep_bounds
+            if bucket == DEEP
+            else self.deeper_bounds
+            if bucket == DEEPER
+            else self.deepest_bounds
+            if bucket == DEEPEST
+            else (self.shallow_bounds[1], self.deep_bounds[0])
+            if bucket == IGNORE
+            else (self.surface_bounds[0], self.shallow_bounds[1])
+            if bucket == USED_SURFACE
+            else (self.deep_bounds[0], self.deepest_bounds[1])
+            if bucket == USED_DEEP
+            else None
         )
 
     def get_temperature_data(self, bucket: str, before=None, do_average=False):
         if bucket == SHALLOW and self.shallow_bounds is None:
             return [[], []]
         bounds = self.__bucket_to_bounds(bucket)
-        return get_data(self.data.get_temperature_data(bounds, average=do_average), before, do_average)
+        return get_data(
+            self.data.get_temperature_data(bounds, average=do_average),
+            before,
+            do_average,
+        )
 
     def get_salinity_data(self, bucket: str, before=None, do_average=False):
         if bucket == SHALLOW and self.shallow_bounds is None:
             return [[], []]
         bounds = self.__bucket_to_bounds(bucket)
-        return get_data(self.data.get_salinity_data(bounds, average=do_average), before, do_average)
+        return get_data(
+            self.data.get_salinity_data(bounds, average=do_average), before, do_average
+        )
 
     def get_oxygen_data(self, bucket: str, before=None, do_average=False):
         if bucket == SHALLOW and self.shallow_bounds is None:
             return [[], []]
         bounds = self.__bucket_to_bounds(bucket)
-        return get_data(self.data.get_oxygen_data(bounds, average=do_average), before, do_average)
+        return get_data(
+            self.data.get_oxygen_data(bounds, average=do_average), before, do_average
+        )
 
     def has_temperature_data(self):
         bounds = self.__bucket_to_bounds(ALL)
@@ -553,7 +572,9 @@ class Inlet(object):
         return is_in_bounds(depth, *self.surface_bounds)
 
     def is_shallow(self, depth):
-        return self.shallow_bounds is not None and is_in_bounds(depth, *self.shallow_bounds)
+        return self.shallow_bounds is not None and is_in_bounds(
+            depth, *self.shallow_bounds
+        )
 
     def is_deep(self, depth):
         return is_in_bounds(depth, *self.deep_bounds)
@@ -954,7 +975,7 @@ class Inlet(object):
                     quality=q,
                     longitude=lon,
                     latitude=lat,
-                    source=filename
+                    source=filename,
                 )
                 for t, d, v, q, lon, lat in zip(
                     time[oxygen_index],
@@ -969,7 +990,9 @@ class Inlet(object):
 
     def add_data_from_erddap(self, data):
         depth_index = data["depth"].map(math.isfinite)
-        temperature_index = data["aggregated_temperature"].map(math.isfinite) & depth_index
+        temperature_index = (
+            data["aggregated_temperature"].map(math.isfinite) & depth_index
+        )
         salinity_index = data["aggregated_salinity"].map(math.isfinite) & depth_index
         oxygen_index = data["aggregated_oxygen"].map(math.isfinite) & depth_index
 
@@ -994,8 +1017,12 @@ class Inlet(object):
                     data.loc[temperature_index, "longitude"],
                     data.loc[temperature_index, "latitude"],
                     data.loc[temperature_index, "source"],
-                    data.loc[temperature_index, "aggregated_temperature_metadata"].map(lambda x: x > 1),
-                    data.loc[temperature_index, "aggregated_temperature_metadata"].map(lambda x: x > 2),
+                    data.loc[temperature_index, "aggregated_temperature_metadata"].map(
+                        lambda x: x > 1
+                    ),
+                    data.loc[temperature_index, "aggregated_temperature_metadata"].map(
+                        lambda x: x > 2
+                    ),
                 )
             ]
         )
@@ -1021,8 +1048,12 @@ class Inlet(object):
                     data.loc[salinity_index, "longitude"],
                     data.loc[salinity_index, "latitude"],
                     data.loc[salinity_index, "source"],
-                    data.loc[salinity_index, "aggregated_salinity_metadata"].map(lambda x: x > 1),
-                    data.loc[salinity_index, "aggregated_salinity_metadata"].map(lambda x: x > 2),
+                    data.loc[salinity_index, "aggregated_salinity_metadata"].map(
+                        lambda x: x > 1
+                    ),
+                    data.loc[salinity_index, "aggregated_salinity_metadata"].map(
+                        lambda x: x > 2
+                    ),
                 )
             ]
         )
@@ -1048,8 +1079,12 @@ class Inlet(object):
                     data.loc[oxygen_index, "longitude"],
                     data.loc[oxygen_index, "latitude"],
                     data.loc[oxygen_index, "source"],
-                    data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(lambda x: x > 1),
-                    data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(lambda x: x > 2),
+                    data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(
+                        lambda x: x > 1
+                    ),
+                    data.loc[oxygen_index, "aggregated_oxygen_metadata"].map(
+                        lambda x: x > 2
+                    ),
                 )
             ]
         )
@@ -1090,9 +1125,28 @@ def get_inlets(
             )
             polygon = Polygon(content["geometry"]["coordinates"][0])
             if "shallow boundaries" in content["properties"]:
-                inlet_list.append(Inlet(name, area, polygon, boundaries, limits, clear_old_data=not from_saved, shallow=content["properties"]["shallow boundaries"]))
+                inlet_list.append(
+                    Inlet(
+                        name,
+                        area,
+                        polygon,
+                        boundaries,
+                        limits,
+                        clear_old_data=not from_saved,
+                        shallow=content["properties"]["shallow boundaries"],
+                    )
+                )
             else:
-                inlet_list.append(Inlet(name, area, polygon, boundaries, limits, clear_old_data=not from_saved))
+                inlet_list.append(
+                    Inlet(
+                        name,
+                        area,
+                        polygon,
+                        boundaries,
+                        limits,
+                        clear_old_data=not from_saved,
+                    )
+                )
     if not from_saved:
         if from_erddap:
             for inlet in inlet_list:
@@ -1105,7 +1159,9 @@ def get_inlets(
                     file_name = os.path.join(root, item)
                     data = xarray.open_dataset(file_name)
                     for inlet in inlet_list:
-                        if inlet.contains(latitude=data.latitude, longitude=data.longitude):
+                        if inlet.contains(
+                            latitude=data.latitude, longitude=data.longitude
+                        ):
                             try:
                                 inlet.add_data_from_netcdf(data)
                             except:
@@ -1138,7 +1194,9 @@ def get_inlets(
                                     shell.process_data()
                                     inlet.add_data_from_shell(shell)
                                 except Exception:
-                                    logging.exception(f"Error encountered when processing {file_name}")
+                                    logging.exception(
+                                        f"Error encountered when processing {file_name}"
+                                    )
                                     continue
             if "HISTORY" in dirs:
                 dirs.remove("HISTORY")
@@ -1147,7 +1205,12 @@ def get_inlets(
         for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
             data = pandas.read_csv(os.path.join(data_dir, file))
             for inlet in inlet_list:
-                inside_inlet = data.loc[lambda frame: [inlet.contains(longitude=lon, latitude=lat) for lon, lat in zip(frame["Longitude"], frame["Latitude"])]]
+                inside_inlet = data.loc[
+                    lambda frame: [
+                        inlet.contains(longitude=lon, latitude=lat)
+                        for lon, lat in zip(frame["Longitude"], frame["Latitude"])
+                    ]
+                ]
                 if len(inside_inlet) == 0:
                     continue
                 inlet.add_data_from_csv(inside_inlet, file)
@@ -1164,7 +1227,12 @@ def main():
     parser.add_argument("-n", "--from-netcdf", action="store_true")
     args = parser.parse_args()
     print("Preparing database")
-    get_inlets(args.data, from_saved=False, from_netcdf=args.from_netcdf, from_erddap=args.from_erddap)
+    get_inlets(
+        args.data,
+        from_saved=False,
+        from_netcdf=args.from_netcdf,
+        from_erddap=args.from_erddap,
+    )
 
 
 if __name__ == "__main__":
