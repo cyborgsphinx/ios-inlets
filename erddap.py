@@ -467,6 +467,3 @@ def pull_data_for(inlet):
                     logging.error(f"{dl} returned error {err.code}: {err.reason}")
                     raise err
 
-
-if __name__ == "__main__":
-    main()
