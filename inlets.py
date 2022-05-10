@@ -474,7 +474,7 @@ class Inlet(object):
                     t,
                     d,
                     datum,
-                    q,
+                    q if q is not None and math.isfinite(q) else 0,
                     longitude,
                     latitude,
                     filename,
