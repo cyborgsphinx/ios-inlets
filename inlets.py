@@ -926,6 +926,7 @@ def get_inlets(
     from_saved=False,
     from_netcdf=False,
     from_erddap=False,
+    from_csv=False,
     inlet_names=[],
     drop_names=[],
     keep_names=[],
@@ -1033,18 +1034,19 @@ def get_inlets(
                 dirs.remove("HISTORY")
 
         # hakai data
-        for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
-            data = pandas.read_csv(os.path.join(data_dir, file))
-            for inlet in inlet_list:
-                inside_inlet = data.loc[
-                    lambda frame: [
-                        inlet.contains(longitude=lon, latitude=lat)
-                        for lon, lat in zip(frame["Longitude"], frame["Latitude"])
+        if from_csv:
+            for file in fnmatch.filter(os.listdir(data_dir), "*.csv"):
+                data = pandas.read_csv(os.path.join(data_dir, file))
+                for inlet in inlet_list:
+                    inside_inlet = data.loc[
+                        lambda frame: [
+                            inlet.contains(longitude=lon, latitude=lat)
+                            for lon, lat in zip(frame["Longitude"], frame["Latitude"])
+                        ]
                     ]
-                ]
-                if len(inside_inlet) == 0:
-                    continue
-                inlet.add_data_from_csv(inside_inlet, file)
+                    if len(inside_inlet) == 0:
+                        continue
+                    inlet.add_data_from_csv(inside_inlet, file)
 
     return inlet_list
 
@@ -1056,6 +1058,7 @@ def main():
     parser.add_argument("-d", "--data", type=str, nargs="?", default="data")
     parser.add_argument("-e", "--from-erddap", action="store_true")
     parser.add_argument("-n", "--from-netcdf", action="store_true")
+    parser.add_argument("-c", "--from-csv", action="store_true")
     args = parser.parse_args()
     print("Preparing database")
     get_inlets(
@@ -1063,6 +1066,7 @@ def main():
         from_saved=False,
         from_netcdf=args.from_netcdf,
         from_erddap=args.from_erddap,
+        from_csv=args.from_csv,
     )
 
 
