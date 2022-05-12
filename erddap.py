@@ -16,6 +16,8 @@ UNALTERED = 1
 COMPUTED = 2
 ASSUMED = 3
 
+EXCEPTIONALLY_BIG = 9.9e36
+
 
 @dataclass
 class VariableData:
@@ -202,6 +204,17 @@ UMOL_KG_SPELLINGS = [
 ]
 
 
+def value_or_nan(value, placeholder=-99):
+    if not isinstance(value, float):
+        return value
+    return (
+        numpy.nan
+        # sometimes the placeholder value has extra fractional parts, e.g. -99.99 instead of -99
+        if any(numpy.isnan([value])) or value > EXCEPTIONALLY_BIG or int(value) == placeholder
+        else value
+    )
+
+
 def standardize_units(units):
     name = units.lower()
     return (
@@ -279,7 +292,7 @@ def convert_oxygen(oxygen, units, data):
 
 
 def combine_columns(
-    data, desired_unit, units, new_column, columns, convert_fn, default=numpy.nan
+        data, desired_unit, units, new_column, columns, convert_fn, default=numpy.nan, placeholder=-99
 ):
     new_metadata = new_column + "_metadata"
     new_quality = new_column + "_quality"
@@ -292,6 +305,8 @@ def combine_columns(
     )
     standard_desired_unit = standardize_units(desired_unit)
     for column in columns:
+        # re-insert NaN values that have been mapped to finite numbers
+        new_data[column] = new_data[column].map(lambda x: value_or_nan(x, placeholder))
         if (
             len(desired_unit) == 0
             or standardize_units(units.at[0, column]) == standard_desired_unit
