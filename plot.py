@@ -337,7 +337,7 @@ def chart_temperature_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool
     print("Producing temperature anomaly plots")
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_temperature_data(inlets.USED_DEEP, do_average=True),
+        lambda inlet: inlet.get_temperature_data(inlets.USED_DEEP, do_average=True, before=END),
         "Temperature (C)",
         "Deep Water Temperature Anomalies",
         lambda inlet: inlet.limits["temperature"]["deep"]
@@ -346,7 +346,7 @@ def chart_temperature_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool
     )
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_temperature_data(inlets.USED_SURFACE, do_average=True),
+        lambda inlet: inlet.get_temperature_data(inlets.USED_SURFACE, do_average=True, before=END),
         "Temperature (C)",
         "Surface Water Temperature Anomalies",
         lambda inlet: inlet.limits["temperature"]["surface"]
@@ -359,7 +359,7 @@ def chart_salinity_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing salinity anomaly plots")
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_salinity_data(inlets.USED_DEEP, do_average=True),
+        lambda inlet: inlet.get_salinity_data(inlets.USED_DEEP, do_average=True, before=END),
         "Salinity (PSU)",
         "Deep Water Salinity Anomalies",
         lambda inlet: inlet.limits["salinity"]["deep"]
@@ -368,7 +368,7 @@ def chart_salinity_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool):
     )
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_salinity_data(inlets.USED_SURFACE, do_average=True),
+        lambda inlet: inlet.get_salinity_data(inlets.USED_SURFACE, do_average=True, before=END),
         "Salinity (PSU)",
         "Surface Water Salinity Anomalies",
         lambda inlet: inlet.limits["salinity"]["surface"]
@@ -381,7 +381,7 @@ def chart_oxygen_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool):
     print("Producing oxygen anomaly plot")
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_oxygen_data(inlets.USED_DEEP, do_average=True),
+        lambda inlet: inlet.get_oxygen_data(inlets.USED_DEEP, do_average=True, before=END),
         "Oxygen (mL/L)",
         "Deep Water Dissolved Oxygen Anomalies",
         lambda inlet: inlet.limits["oxygen"]["deep"]
@@ -390,7 +390,7 @@ def chart_oxygen_anomalies(inlet_list: List[inlets.Inlet], use_limits: bool):
     )
     chart_anomalies(
         inlet_list,
-        lambda inlet: inlet.get_oxygen_data(inlets.USED_SURFACE, do_average=True),
+        lambda inlet: inlet.get_oxygen_data(inlets.USED_SURFACE, do_average=True, before=END),
         "Oxygen (mL/L)",
         "Surface Water Dissolved Oxygen Anomalies",
         lambda inlet: inlet.limits["oxygen"]["surface"]
@@ -411,7 +411,7 @@ def chart_annual_temperature_averages(inlet_list: List[inlets.Inlet], use_limits
     print("Producing annual temperature plots")
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_temperature_data(inlets.USED_DEEP, do_average=True),
+        lambda inlet: inlet.get_temperature_data(inlets.USED_DEEP, do_average=True, before=END),
         "Temperature (C)",
         "Deep Water Temperature Annual Averages",
         lambda inlet: inlet.limits["temperature"]["deep"]
@@ -420,7 +420,7 @@ def chart_annual_temperature_averages(inlet_list: List[inlets.Inlet], use_limits
     )
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_temperature_data(inlets.USED_SURFACE, do_average=True),
+        lambda inlet: inlet.get_temperature_data(inlets.USED_SURFACE, do_average=True, before=END),
         "Temperature (C)",
         "Surface Water Temperature Annual Averages",
         lambda inlet: inlet.limits["temperature"]["surface"]
@@ -433,7 +433,7 @@ def chart_annual_salinity_averages(inlet_list: List[inlets.Inlet], use_limits: b
     print("Producing annual salinity plots")
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_salinity_data(inlets.USED_DEEP, do_average=True),
+        lambda inlet: inlet.get_salinity_data(inlets.USED_DEEP, do_average=True, before=END),
         "Salinity (PSU)",
         "Deep Water Salinity Annual Averages",
         lambda inlet: inlet.limits["salinity"]["deep"]
@@ -442,7 +442,7 @@ def chart_annual_salinity_averages(inlet_list: List[inlets.Inlet], use_limits: b
     )
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_salinity_data(inlets.USED_SURFACE, do_average=True),
+        lambda inlet: inlet.get_salinity_data(inlets.USED_SURFACE, do_average=True, before=END),
         "Salinity (PSU)",
         "Surface Water Salinity Annual Averages",
         lambda inlet: inlet.limits["salinity"]["surface"]
@@ -455,7 +455,7 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet], use_limits: boo
     print("Producing annual oxygen plots")
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_oxygen_data(inlets.USED_DEEP, do_average=True),
+        lambda inlet: inlet.get_oxygen_data(inlets.USED_DEEP, do_average=True, before=END),
         "Oxygen (mL/L)",
         "Deep Water Dissolved Oxygen Annual Averages",
         lambda inlet: inlet.limits["oxygen"]["deep"]
@@ -464,7 +464,7 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet], use_limits: boo
     )
     do_chart_annual_averages(
         inlet_list,
-        lambda inlet: inlet.get_oxygen_data(inlets.USED_SURFACE, do_average=True),
+        lambda inlet: inlet.get_oxygen_data(inlets.USED_SURFACE, do_average=True, before=END),
         "Oxygen (mL/L)",
         "Surface Water Dissolved Oxygen Annual Averages",
         lambda inlet: inlet.limits["oxygen"]["surface"]
@@ -516,6 +516,9 @@ def chart_monthly_sample(inlet: inlets.Inlet):
         inlet.data.get_oxygen_data((None, None)),
     ):
         year = datum.time.year
+        # InletData object doesn't expose date filtering so we do it here
+        if year > END.year:
+            continue
         min_year = min(year, min_year)
         max_year = max(year, max_year)
         month = months[datum.time.month]
