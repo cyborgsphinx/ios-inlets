@@ -591,6 +591,7 @@ def main():
     parser.add_argument("-b", "--plot-buckets", action="store_true")
     parser.add_argument("-a", "--plot-averages", action="store_true")
     parser.add_argument("-A", "--plot-annual", action="store_true")
+    parser.add_argument("-R", "--plot-raw", action="store_true")
     parser.add_argument("-s", "--plot-sampling", action="store_true")
     parser.add_argument("--plot-all", action="store_true")
     args = parser.parse_args()
