@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 import datetime
 import logging
-import os
 import sqlite3
 from typing import List, Tuple
 
 
 sqlite3.paramstyle = "named"
-DB_NAME = os.path.join("data", "inlet_data.db")
+DB_NAME = "inlet_data.db"
 
 
 def _table_name(inlet_name: str) -> str:
