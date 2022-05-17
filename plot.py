@@ -9,6 +9,7 @@ from typing import Dict, List
 
 END = datetime.datetime.now()
 INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s", "m-d"]
+FIGURE_PATH_BASE = "figures"
 
 
 ###################
@@ -21,7 +22,15 @@ def normalize(string: str):
 
 
 def figure_path(filename: str):
-    return os.path.join("figures", filename)
+    return os.path.join(FIGURE_PATH_BASE, filename)
+
+
+def ensure_figure_path():
+    try:
+        os.mkdir(FIGURE_PATH_BASE)
+    except FileExistsError:
+        # ignore errors related to path existing
+        pass
 
 
 def label_from_bounds(lower, upper):
@@ -622,6 +631,7 @@ def main():
             args.plot_raw,
             args.plot_buckets,
         )
+    ensure_figure_path()
     if plot_annual:
         chart_annual_temperature_averages(inlet_list, not args.no_limits)
         chart_annual_salinity_averages(inlet_list, not args.no_limits)
