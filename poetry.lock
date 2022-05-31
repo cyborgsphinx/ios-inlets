@@ -355,7 +355,7 @@ python-versions = "*"
 
 [[package]]
 name = "ios-shell"
-version = "1.1.0"
+version = "1.2.1"
 description = "Parses files formatted by the Institute of Ocean Sciences' IOSShell tool"
 category = "main"
 optional = false
@@ -363,6 +363,9 @@ python-versions = ">=3.8,<3.11"
 
 [package.dependencies]
 fortranformat = ">=1.0.1,<2.0.0"
+
+[package.extras]
+pandas = ["pandas (>=1.4.2,<2.0.0)"]
 
 [[package]]
 name = "ipykernel"
@@ -1268,7 +1271,7 @@ python-versions = ">= 3.5"
 
 [[package]]
 name = "traitlets"
-version = "5.2.1.post0"
+version = "5.2.2"
 description = ""
 category = "dev"
 optional = false
@@ -1612,8 +1615,8 @@ iniconfig = [
     {file = "iniconfig-1.1.1.tar.gz", hash = "sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32"},
 ]
 ios-shell = [
-    {file = "ios-shell-1.1.0.tar.gz", hash = "sha256:19a44bb6433a8157a77967ed1564187f15bb99be4ba90c300a57d16077fc7c22"},
-    {file = "ios_shell-1.1.0-py3-none-any.whl", hash = "sha256:094cf9eb76d22290643baf798de82a0204bd42371f69abfc2b6665902751b035"},
+    {file = "ios-shell-1.2.1.tar.gz", hash = "sha256:847be2d1b9ed46063543b6b32f8aa0de5205ae1ff65dcda27eb5c764e93bccc5"},
+    {file = "ios_shell-1.2.1-py3-none-any.whl", hash = "sha256:961c0a85f11df4f2161a9fc15c39502bb6c9d1e1da1b4c9617e0b9939e7ad81c"},
 ]
 ipykernel = [
     {file = "ipykernel-6.13.0-py3-none-any.whl", hash = "sha256:2b0987af43c0d4b62cecb13c592755f599f96f29aafe36c01731aaa96df30d39"},
@@ -2338,8 +2341,8 @@ tornado = [
     {file = "tornado-6.1.tar.gz", hash = "sha256:33c6e81d7bd55b468d2e793517c909b139960b6c790a60b7991b9b6b76fb9791"},
 ]
 traitlets = [
-    {file = "traitlets-5.2.1.post0-py3-none-any.whl", hash = "sha256:f44b708d33d98b0addb40c29d148a761f44af740603a8fd0e2f8b5b27cf0f087"},
-    {file = "traitlets-5.2.1.post0.tar.gz", hash = "sha256:70815ecb20ec619d1af28910ade523383be13754283aef90528eb3d47b77c5db"},
+    {file = "traitlets-5.2.2-py3-none-any.whl", hash = "sha256:a90f0821f7288cc8ebd4f279caf6d73284514c2d5d1719877e370311f19fdf97"},
+    {file = "traitlets-5.2.2.tar.gz", hash = "sha256:f72ba7d3b31e7938c122860d70d75a5f0ca34e6f2c7db2c7d2f06d47ae099f27"},
 ]
 typing-extensions = [
     {file = "typing_extensions-4.2.0-py3-none-any.whl", hash = "sha256:6657594ee297170d19f67d55c05852a874e7eb634f4f753dbd667855e07c1708"},
