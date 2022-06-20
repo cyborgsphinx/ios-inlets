@@ -930,9 +930,10 @@ def get_inlets(
     inlet_names=[],
     drop_names=[],
     keep_names=[],
+    geojson_file="inlets.geojson",
 ) -> List[Inlet]:
     inlet_list = []
-    with open("inlets.geojson") as f:
+    with open(geojson_file) as f:
         contents = json.load(f)["features"]
         for content in contents:
             name = content["properties"]["name"]

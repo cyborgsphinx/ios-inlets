@@ -602,6 +602,7 @@ def main():
     parser.add_argument("-A", "--plot-annual", action="store_true")
     parser.add_argument("-R", "--plot-raw", action="store_true")
     parser.add_argument("-s", "--plot-sampling", action="store_true")
+    parser.add_argument("-g", "--geojson", type=str, nargs="?", default="inlets.geojson")
     parser.add_argument("--plot-all", action="store_true")
     args = parser.parse_args()
     inlet_list = inlets.get_inlets(
@@ -613,6 +614,7 @@ def main():
         inlet_names=args.inlet_name,
         drop_names=args.remove_inlet_name,
         keep_names=args.limit_name,
+        geojson_file=args.geojson,
     )
     plt.figure(figsize=(8, 6))
     if args.plot_all:
