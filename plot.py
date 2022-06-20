@@ -40,6 +40,13 @@ def label_from_bounds(lower, upper):
         return f"{lower}m-{upper}m"
 
 
+def update_totals(totals, key, datum):
+    if key not in totals:
+        totals[key] = (0, 0)
+    total, num = totals[key]
+    totals[key] = (total + datum, num + 1)
+
+
 ########################
 # Single inlet functions
 ########################
@@ -296,11 +303,7 @@ def do_annual_work(inlet_list, data_fn, averaging_fn, limit_fn):
         for time, datum in zip(times, data):
             if len(limits) > 0 and not (limits[0] < datum < limits[1]):
                 continue
-            year = time.year
-            if year not in totals:
-                totals[year] = (0, 0)
-            total, num = totals[year]
-            totals[year] = (total + datum, num + 1)
+            update_totals(totals, time.year, datum)
 
         averages = averaging_fn(totals, data)
         years, values = zip(*sorted(averages.items(), key=lambda item: item[0]))
@@ -482,6 +485,67 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet], use_limits: boo
     )
 
 
+#############################
+# Decadal averaging functions
+#############################
+
+
+def do_decadal_work(inlet, data_fn):
+    plt.clf()
+    totals = {}
+    years = {}
+    times, data = data_fn(inlet)
+
+    # plot bare data along side decadal averages
+    plt.plot(times, data, "xg", label=f"Data")
+
+    for time, datum in zip(times, data):
+        year = time.year
+        decade = year // 10
+        update_totals(totals, decade, datum)
+        update_totals(years, decade, year)
+    averages = annual_averaging(totals, [])
+    years = annual_averaging(years, [])
+
+    x, y = zip(*[(datetime.date(round(years[decade]), 1, 1), averages[decade]) for decade in averages.keys()])
+    plt.plot(x, y, "^b", label=f"Decadal Trend")
+
+    plt.legend()
+
+
+def chart_temperature_decade(inlet: inlets.Inlet):
+    print(f"Producing temperature decade trend plot for {inlet.name}")
+    do_decadal_work(
+        inlet,
+        lambda inlet: inlet.get_temperature_data(inlets.DEEP, do_average=False, before=END),
+    )
+    bounds = inlet.deep_bounds
+    plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Temperature - Decade Averages")
+    plt.savefig(figure_path(f"{normalize(inlet.name)}-temperature-decade.png"))
+
+
+def chart_salinity_decade(inlet: inlets.Inlet):
+    print(f"Producing salinity decade trend plot for {inlet.name}")
+    do_decadal_work(
+        inlet,
+        lambda inlet: inlet.get_salinity_data(inlets.DEEP, do_average=False, before=END),
+    )
+    bounds = inlet.deep_bounds
+    plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Salinity - Decade Averages")
+    plt.savefig(figure_path(f"{normalize(inlet.name)}-salinity-decade.png"))
+
+
+def chart_oxygen_decade(inlet: inlets.Inlet):
+    print(f"Producing oxygen decade trend plot for {inlet.name}")
+    do_decadal_work(
+        inlet,
+        lambda inlet: inlet.get_oxygen_data(inlets.DEEP, do_average=False, before=END),
+    )
+    bounds = inlet.deep_bounds
+    plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Dissolved Oxygen - Decade Averages")
+    plt.savefig(figure_path(f"{normalize(inlet.name)}-oxygen-decade.png"))
+
+
 ###################
 # Monthly functions
 ###################
@@ -602,6 +666,7 @@ def main():
     parser.add_argument("-A", "--plot-annual", action="store_true")
     parser.add_argument("-R", "--plot-raw", action="store_true")
     parser.add_argument("-s", "--plot-sampling", action="store_true")
+    parser.add_argument("-D", "--plot-decadal", action="store_true")
     parser.add_argument("-g", "--geojson", type=str, nargs="?", default="inlets.geojson")
     parser.add_argument("--plot-all", action="store_true")
     args = parser.parse_args()
@@ -618,20 +683,22 @@ def main():
     )
     plt.figure(figsize=(8, 6))
     if args.plot_all:
-        (plot_annual, plot_sampling, plot_average, plot_raw, plot_buckets) = (
+        (plot_annual, plot_sampling, plot_average, plot_raw, plot_buckets, plot_decadal) = (
             True,
             True,
             True,
             True,
             False,
+            False,
         )
     else:
-        (plot_annual, plot_sampling, plot_average, plot_raw, plot_buckets) = (
+        (plot_annual, plot_sampling, plot_average, plot_raw, plot_buckets, plot_decadal) = (
             args.plot_annual,
             args.plot_sampling,
             args.plot_averages,
             args.plot_raw,
             args.plot_buckets,
+            args.plot_decadal,
         )
     ensure_figure_path()
     if plot_annual:
@@ -722,6 +789,11 @@ def main():
                 chart_oxygen_data,
                 False,
             )
+    if plot_decadal:
+        for inlet in inlet_list:
+            chart_temperature_decade(inlet)
+            chart_salinity_decade(inlet)
+            chart_oxygen_decade(inlet)
     plt.close()
 
 
