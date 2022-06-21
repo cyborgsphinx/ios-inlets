@@ -517,7 +517,7 @@ def chart_temperature_decade(inlet: inlets.Inlet):
     print(f"Producing temperature decade trend plot for {inlet.name}")
     do_decadal_work(
         inlet,
-        lambda inlet: inlet.get_temperature_data(inlets.DEEP, do_average=False, before=END),
+        lambda inlet: inlet.get_temperature_data(inlets.DEEP, do_average=True, before=END),
     )
     bounds = inlet.deep_bounds
     plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Temperature - Decade Averages")
@@ -528,7 +528,7 @@ def chart_salinity_decade(inlet: inlets.Inlet):
     print(f"Producing salinity decade trend plot for {inlet.name}")
     do_decadal_work(
         inlet,
-        lambda inlet: inlet.get_salinity_data(inlets.DEEP, do_average=False, before=END),
+        lambda inlet: inlet.get_salinity_data(inlets.DEEP, do_average=True, before=END),
     )
     bounds = inlet.deep_bounds
     plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Salinity - Decade Averages")
@@ -539,7 +539,7 @@ def chart_oxygen_decade(inlet: inlets.Inlet):
     print(f"Producing oxygen decade trend plot for {inlet.name}")
     do_decadal_work(
         inlet,
-        lambda inlet: inlet.get_oxygen_data(inlets.DEEP, do_average=False, before=END),
+        lambda inlet: inlet.get_oxygen_data(inlets.DEEP, do_average=True, before=END),
     )
     bounds = inlet.deep_bounds
     plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Dissolved Oxygen - Decade Averages")
