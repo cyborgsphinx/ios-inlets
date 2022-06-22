@@ -17,18 +17,20 @@ from typing import Dict, List
 import xarray
 import ios_shell.shell as ios
 import erddap
+from enum import Enum
 
 EXCEPTIONALLY_BIG = 9.9e36
 
-SURFACE = "surface"
-SHALLOW = "shallow"
-DEEP = "deep"
-DEEPER = "deeper"
-DEEPEST = "deepest"
-IGNORE = "ignore"
-ALL = "all"
-USED_SURFACE = "used surface"
-USED_DEEP = "used deep"
+class Category(Enum):
+    IGNORE = 1
+    SURFACE = 2
+    SHALLOW = 3
+    USED_SURFACE = 4
+    DEEP = 5
+    DEEPER = 6
+    DEEPEST = 7
+    USED_DEEP = 8
+    ALL = 9
 
 
 def get_length(arr):
@@ -285,33 +287,33 @@ class Inlet(object):
         else:
             self.shallow_bounds = None
 
-    def __bucket_to_bounds(self, bucket: str):
+    def __bucket_to_bounds(self, bucket: Category):
         return (
             (None, None)
-            if bucket == ALL
+            if bucket == Category.ALL
             else self.surface_bounds
-            if bucket == SURFACE
-            or bucket == USED_SURFACE
+            if bucket == Category.SURFACE
+            or bucket == Category.USED_SURFACE
             and self.shallow_bounds is None
             else self.shallow_bounds
-            if bucket == SHALLOW
+            if bucket == Category.SHALLOW
             else self.deep_bounds
-            if bucket == DEEP
+            if bucket == Category.DEEP
             else self.deeper_bounds
-            if bucket == DEEPER
+            if bucket == Category.DEEPER
             else self.deepest_bounds
-            if bucket == DEEPEST
+            if bucket == Category.DEEPEST
             else (self.shallow_bounds[1], self.deep_bounds[0])
-            if bucket == IGNORE
+            if bucket == Category.IGNORE
             else (self.surface_bounds[0], self.shallow_bounds[1])
-            if bucket == USED_SURFACE
+            if bucket == Category.USED_SURFACE
             else (self.deep_bounds[0], self.deepest_bounds[1])
-            if bucket == USED_DEEP
+            if bucket == Category.USED_DEEP
             else None
         )
 
     def get_temperature_data(self, bucket: str, before=None, do_average=False):
-        if bucket == SHALLOW and self.shallow_bounds is None:
+        if bucket == Category.SHALLOW and self.shallow_bounds is None:
             return [[], []]
         bounds = self.__bucket_to_bounds(bucket)
         return get_data(
@@ -321,7 +323,7 @@ class Inlet(object):
         )
 
     def get_salinity_data(self, bucket: str, before=None, do_average=False):
-        if bucket == SHALLOW and self.shallow_bounds is None:
+        if bucket == Category.SHALLOW and self.shallow_bounds is None:
             return [[], []]
         bounds = self.__bucket_to_bounds(bucket)
         return get_data(
@@ -329,7 +331,7 @@ class Inlet(object):
         )
 
     def get_oxygen_data(self, bucket: str, before=None, do_average=False):
-        if bucket == SHALLOW and self.shallow_bounds is None:
+        if bucket == Category.SHALLOW and self.shallow_bounds is None:
             return [[], []]
         bounds = self.__bucket_to_bounds(bucket)
         return get_data(
@@ -337,22 +339,22 @@ class Inlet(object):
         )
 
     def has_temperature_data(self):
-        bounds = self.__bucket_to_bounds(ALL)
+        bounds = self.__bucket_to_bounds(Category.ALL)
         return len(self.data.get_temperature_data(bounds)) > 0
 
     def has_salinity_data(self):
-        bounds = self.__bucket_to_bounds(ALL)
+        bounds = self.__bucket_to_bounds(Category.ALL)
         return len(self.data.get_salinity_data(bounds)) > 0
 
     def has_oxygen_data(self):
-        bounds = self.__bucket_to_bounds(ALL)
+        bounds = self.__bucket_to_bounds(Category.ALL)
         return len(self.data.get_oxygen_data(bounds)) > 0
 
     def has_data_from(self, file_name):
         return os.path.basename(file_name).lower() in self.used_files
 
     def get_station_data(self, before=None):
-        bounds = self.__bucket_to_bounds(ALL)
+        bounds = self.__bucket_to_bounds(Category.ALL)
         data = self.data.get_temperature_data(bounds)
         temperature_data = (
             filter(lambda x: x.time.year < before.year, data)
