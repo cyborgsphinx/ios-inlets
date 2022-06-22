@@ -17,11 +17,8 @@ Inlet polygons defined using https://geojson.io
 This project depends on (at least)
 
 - [poetry](https://python-poetry.org)
+- a C compiler
 - python development headers (python-dev or equivalent)
-- pkg-config
-- libcairo development headers (libcairo-dev or equivalent)
-- gobject-introspection
-- libgirepository
 
 Once those are installed, you can run
 
