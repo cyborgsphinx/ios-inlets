@@ -77,3 +77,14 @@ def test_sd(data, expected):
 )
 def test_index_by_month(dates, expected):
     assert utils.index_by_month(dates) == expected
+
+
+@pytest.mark.parametrize(
+    "num,expected",
+    [
+        (1965.0, datetime.date(1965, 1, 1)),
+        (1965.5, datetime.date(1965, 7, 2)),
+    ],
+)
+def test_year_from_float(num, expected):
+    assert utils.date_from_float(num) == expected

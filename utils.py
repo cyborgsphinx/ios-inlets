@@ -1,3 +1,4 @@
+import datetime
 from enum import Enum
 import math
 from numpy.polynomial.polynomial import Polynomial
@@ -34,6 +35,35 @@ def index_by_month(dates):
     dates = list(dates)
     start_year = min(date.year for date in dates)
     return [date.month + (12 * (date.year - start_year)) for date in dates]
+
+
+def date_from_float(num):
+    # ignoring leap years for simplicity
+    year = math.trunc(num)
+    # want 1-365 instead of 0-364
+    day = math.trunc((num - year) * 365) + 1
+    months = [
+        0, # padding
+        31, # January
+        28, # February
+        31, # March
+        30, # April
+        31, # May
+        30, # June
+        31, # July
+        31, # August
+        30, # September
+        31, # October
+        30, # November
+        31, # December
+    ]
+    for m, d in enumerate(months):
+        if day < d:
+            month = m
+            break
+        else:
+            day -= d
+    return datetime.date(year, month, day)
 
 
 class Trend(Enum):

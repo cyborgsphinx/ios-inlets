@@ -534,7 +534,7 @@ def do_decadal_work(inlet, data_fn):
 
     x, y = zip(
         *[
-            (datetime.date(round(years[decade]), 1, 1), averages[decade])
+            (utils.date_from_float(years[decade]), averages[decade])
             for decade in averages.keys()
         ]
     )
