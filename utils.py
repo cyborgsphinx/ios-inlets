@@ -1,3 +1,4 @@
+from enum import Enum
 import math
 from numpy.polynomial.polynomial import Polynomial
 
@@ -35,22 +36,27 @@ def index_by_month(dates):
     return [date.month + (12 * (date.year - start_year)) for date in dates]
 
 
-def remove_seasonal_trend(x, y, remove_trend=False, by_difference=True, remove_sd=True):
+class Trend(Enum):
+    NONE = 0
+    DIFF = 1
+    LINEAR = 2
+
+
+def remove_seasonal_trend(x, y, trend=Trend.NONE, remove_sd=True):
     to_process = list(y)
-    if remove_trend:
-        if by_difference:
-            to_process = list(map(lambda a, b: a - b, to_process[1:], to_process))
-        else:
-            domain = index_by_month(x)
-            fit = Polynomial.fit(domain, to_process, 1)
-            coeficients = fit.convert().coef
-            to_process = list(
-                map(
-                    lambda a, b: a - (coeficients[0] + coeficients[1] * b),
-                    to_process,
-                    domain,
-                )
+    if trend == Trend.DIFF:
+        to_process = list(map(lambda a, b: a - b, to_process[1:], to_process))
+    elif trend == Trend.LINEAR:
+        domain = index_by_month(x)
+        fit = Polynomial.fit(domain, to_process, 1)
+        coeficients = fit.convert().coef
+        to_process = list(
+            map(
+                lambda a, b: a - (coeficients[0] + coeficients[1] * b),
+                to_process,
+                domain,
             )
+        )
     avg = mean(to_process)
     out = [x - avg for x in to_process]
     if remove_sd:

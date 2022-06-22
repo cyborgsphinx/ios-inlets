@@ -520,7 +520,7 @@ def do_decadal_work(inlet, data_fn):
 
     # plot bare data along side decadal averages
     removed_trend = utils.remove_seasonal_trend(
-        times, data, remove_trend=True, by_difference=False, remove_sd=True
+        times, data, utils.Trend.LINEAR, remove_sd=True
     )
     plt.plot(times, removed_trend, "xg", label=f"Data")
 
@@ -539,7 +539,7 @@ def do_decadal_work(inlet, data_fn):
         ]
     )
     removed_trend = utils.remove_seasonal_trend(
-        x, y, remove_trend=True, by_difference=False, remove_sd=True
+        x, y, utils.Trend.LINEAR, remove_sd=True
     )
     plt.plot(x, removed_trend, "^b", label=f"Decadal Trend")
 
