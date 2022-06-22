@@ -16,6 +16,7 @@ Inlet polygons defined using https://geojson.io
 
 This project depends on (at least)
 
+- python version 3.9 or later
 - [poetry](https://python-poetry.org)
 - a C compiler
 - python development headers (python-dev or equivalent)
