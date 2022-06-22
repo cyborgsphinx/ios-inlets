@@ -1,6 +1,7 @@
 import math
 from numpy.polynomial.polynomial import Polynomial
 
+
 def normalize(string: str):
     return string.strip().lower().replace(" ", "-")
 
@@ -25,9 +26,7 @@ def mean(data):
 
 def sd(data):
     u = mean(data)
-    return math.sqrt(
-        sum(map(lambda x: (x - u) ** 2, data)) / len(data)
-    )
+    return math.sqrt(sum(map(lambda x: (x - u) ** 2, data)) / len(data))
 
 
 def index_by_month(dates):
@@ -45,7 +44,13 @@ def remove_seasonal_trend(x, y, remove_trend=False, by_difference=True, remove_s
             domain = index_by_month(x)
             fit = Polynomial.fit(domain, to_process, 1)
             coeficients = fit.convert().coef
-            to_process = list(map(lambda a, b: a - (coeficients[0] + coeficients[1] * b), to_process, domain))
+            to_process = list(
+                map(
+                    lambda a, b: a - (coeficients[0] + coeficients[1] * b),
+                    to_process,
+                    domain,
+                )
+            )
     avg = mean(to_process)
     out = [x - avg for x in to_process]
     if remove_sd:

@@ -45,7 +45,7 @@ def test_update_totals(totals, key, datum, expected):
 @pytest.mark.parametrize(
     "data,expected",
     [
-        ([1,2,3,4,5,6,7,8,9,10], 5.5),
+        ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 5.5),
     ],
 )
 def test_mean(data, expected):
@@ -55,7 +55,7 @@ def test_mean(data, expected):
 @pytest.mark.parametrize(
     "data,expected",
     [
-        ([1,2,1,2,1,2,1,2,1,2], 0.5),
+        ([1, 2, 1, 2, 1, 2, 1, 2, 1, 2], 0.5),
     ],
 )
 def test_sd(data, expected):
@@ -65,7 +65,14 @@ def test_sd(data, expected):
 @pytest.mark.parametrize(
     "dates,expected",
     [
-        ([datetime.date(1950, 1, 1), datetime.date(1950, 2, 1), datetime.date(1951, 1, 1)], [1, 2, 13]),
+        (
+            [
+                datetime.date(1950, 1, 1),
+                datetime.date(1950, 2, 1),
+                datetime.date(1951, 1, 1),
+            ],
+            [1, 2, 13],
+        ),
     ],
 )
 def test_index_by_month(dates, expected):

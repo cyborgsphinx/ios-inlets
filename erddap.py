@@ -210,7 +210,9 @@ def value_or_nan(value, placeholder=-99):
     return (
         numpy.nan
         # sometimes the placeholder value has extra fractional parts, e.g. -99.99 instead of -99
-        if any(numpy.isnan([value])) or value > EXCEPTIONALLY_BIG or int(value) == placeholder
+        if any(numpy.isnan([value]))
+        or value > EXCEPTIONALLY_BIG
+        or int(value) == placeholder
         else value
     )
 
@@ -292,7 +294,14 @@ def convert_oxygen(oxygen, units, data):
 
 
 def combine_columns(
-        data, desired_unit, units, new_column, columns, convert_fn, default=numpy.nan, placeholder=-99
+    data,
+    desired_unit,
+    units,
+    new_column,
+    columns,
+    convert_fn,
+    default=numpy.nan,
+    placeholder=-99,
 ):
     new_metadata = new_column + "_metadata"
     new_quality = new_column + "_quality"
@@ -481,4 +490,3 @@ def pull_data_for(inlet):
                 else:
                     logging.error(f"{dl} returned error {err.code}: {err.reason}")
                     raise err
-

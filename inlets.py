@@ -21,6 +21,7 @@ from enum import Enum
 
 EXCEPTIONALLY_BIG = 9.9e36
 
+
 class Category(Enum):
     IGNORE = 1
     SURFACE = 2
