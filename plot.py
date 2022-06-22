@@ -2,12 +2,11 @@ import argparse
 import datetime
 import inlets
 import itertools
-import math
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy
 import os
 from typing import Dict, List
+import utils
 
 END = datetime.datetime.now()
 INLET_LINES = ["m-s", "y-d", "k-o", "c-^", "b-d", "g-s", "r-s", "m-d"]
@@ -17,10 +16,6 @@ FIGURE_PATH_BASE = "figures"
 ###################
 # Utility functions
 ###################
-
-
-def normalize(string: str):
-    return string.strip().lower().replace(" ", "-")
 
 
 def figure_path(filename: str):
@@ -33,56 +28,6 @@ def ensure_figure_path():
     except FileExistsError:
         # ignore errors related to path existing
         pass
-
-
-def label_from_bounds(lower, upper):
-    if upper is None:
-        return f">{lower}m"
-    else:
-        return f"{lower}m-{upper}m"
-
-
-def update_totals(totals, key, datum):
-    if key not in totals:
-        totals[key] = (0, 0)
-    total, num = totals[key]
-    totals[key] = (total + datum, num + 1)
-
-
-def mean(data):
-    return sum(data) / len(data)
-
-
-def sd(data):
-    u = mean(data)
-    return math.sqrt(
-        sum(map(lambda x: (x - u) ** 2, data)) / len(data)
-    )
-
-
-def index_by_month(dates):
-    dates = list(dates)
-    start_year = min(date.year for date in dates)
-    return [date.month * (date.year - start_year) for date in dates]
-
-
-def remove_seasonal_trend(x, y, remove_trend=False, by_difference=True, remove_sd=True):
-    to_process = list(y)
-    if remove_trend:
-        if by_difference:
-            to_process = list(map(lambda a, b: a - b, to_process[1:], to_process))
-        else:
-            domain = index_by_month(x)
-            fit = numpy.polynomial.polynomial.Polynomial.fit(domain, to_process, 1)
-            coeficients = fit.convert().coef
-            to_process = list(map(lambda a, b: a - (coeficients[0] + coeficients[1] * b), to_process, domain))
-    avg = mean(to_process)
-    std_dev = sd(to_process)
-    out = [x - avg for x in to_process]
-    if remove_sd:
-        out = [x / std_dev for x in out]
-    return out
-
 
 ########################
 # Single inlet functions
@@ -117,15 +62,15 @@ def chart_deep_data(inlet: inlets.Inlet, limits: List[float], data_fn):
         shallow_time,
         shallow_data,
         "xg",
-        label=label_from_bounds(*inlet.deep_bounds),
+        label=utils.label_from_bounds(*inlet.deep_bounds),
     )
     plt.plot(
         middle_time,
         middle_data,
         "+m",
-        label=label_from_bounds(*inlet.deeper_bounds),
+        label=utils.label_from_bounds(*inlet.deeper_bounds),
     )
-    plt.plot(deep_time, deep_data, "xb", label=label_from_bounds(*inlet.deepest_bounds))
+    plt.plot(deep_time, deep_data, "xb", label=utils.label_from_bounds(*inlet.deepest_bounds))
     plt.legend()
 
 
@@ -149,14 +94,14 @@ def chart_surface_data(inlet: inlets.Inlet, limits: List[float], data_fn):
             ]
         )
     plt.plot(
-        surface_time, surface_data, "xg", label=label_from_bounds(*inlet.surface_bounds)
+        surface_time, surface_data, "xg", label=utils.label_from_bounds(*inlet.surface_bounds)
     )
     if inlet.shallow_bounds is not None:
         plt.plot(
             shallow_time,
             shallow_data,
             "+m",
-            label=label_from_bounds(*inlet.shallow_bounds),
+            label=utils.label_from_bounds(*inlet.shallow_bounds),
         )
     plt.legend()
 
@@ -173,13 +118,13 @@ def chart_temperatures(
     chart_deep_data(inlet, limits["deep"], data_fn)
     plt.ylabel(ylabel)
     plt.title(f"{inlet.name} Deep Water Temperature")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-deep-temperature{average}.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-deep-temperature{average}.png"))
 
     chart_surface_data(inlet, limits["surface"], data_fn)
     plt.ylabel(ylabel)
     plt.title(f"{inlet.name} Surface Water Temperature")
     plt.savefig(
-        figure_path(f"{normalize(inlet.name)}-surface-temperature{average}.png")
+        figure_path(f"{utils.normalize(inlet.name)}-surface-temperature{average}.png")
     )
 
 
@@ -195,12 +140,12 @@ def chart_salinities(
     chart_deep_data(inlet, limits["deep"], data_fn)
     plt.ylabel(ylabel)
     plt.title(f"{inlet.name} Deep Water Salinity")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-deep-salinity{average}.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-deep-salinity{average}.png"))
 
     chart_surface_data(inlet, limits["surface"], data_fn)
     plt.ylabel(ylabel)
     plt.title(f"{inlet.name} Surface Water Salinity")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-surface-salinity{average}.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-surface-salinity{average}.png"))
 
 
 def chart_oxygen_data(
@@ -215,12 +160,12 @@ def chart_oxygen_data(
     chart_deep_data(inlet, limits["deep"], data_fn)
     plt.ylabel(ylabel)
     plt.title(f"{inlet.name} Deep Water Dissolved Oxygen")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-deep-oxygen{average}.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-deep-oxygen{average}.png"))
 
     chart_surface_data(inlet, limits["surface"], data_fn)
     plt.ylabel(ylabel)
     plt.title(f"{inlet.name} Surface Water Dissolved Oxygen")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-surface-oxygen{average}.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-surface-oxygen{average}.png"))
 
 
 def chart_stations(
@@ -237,7 +182,7 @@ def chart_stations(
     plt.ylabel("Number of Stations")
     plt.legend()
     plt.title(f"{inlet.name} Sampling History")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-samples.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-samples.png"))
 
 
 def do_chart(
@@ -307,7 +252,7 @@ def do_chart_all(inlet_list, kind, bucket, chart_all_fn):
     plt.clf()
     for inlet in inlet_list:
         chart_all_fn(inlet, bucket)
-    names = "-".join(normalize(inlet.name) for inlet in inlet_list)
+    names = "-".join(utils.normalize(inlet.name) for inlet in inlet_list)
     bounds_name = bucket.lower() + "_bounds"
     lowest = min(getattr(inlet, bounds_name)[0] for inlet in inlet_list)
     highest = max(
@@ -340,7 +285,7 @@ def do_annual_work(inlet_list, data_fn, averaging_fn, limit_fn):
         for time, datum in zip(times, data):
             if len(limits) > 0 and not (limits[0] < datum < limits[1]):
                 continue
-            update_totals(totals, time.year, datum)
+            utils.update_totals(totals, time.year, datum)
 
         averages = averaging_fn(totals, data)
         years, values = zip(*sorted(averages.items(), key=lambda item: item[0]))
@@ -360,7 +305,7 @@ def do_annual_work_parts(inlet_list, data_fn, averaging_fn, y_label, title, limi
         )
         plt.ylabel(y_label)
         plt.title(f"{title} - {area}")
-        plt.savefig(figure_path(f"{normalize(title)}-{normalize(area)}.png"))
+        plt.savefig(figure_path(f"{utils.normalize(title)}-{utils.normalize(area)}.png"))
 
 
 def annual_averaging(totals, _data):
@@ -534,19 +479,19 @@ def do_decadal_work(inlet, data_fn):
     times, data = data_fn(inlet)
 
     # plot bare data along side decadal averages
-    removed_trend = remove_seasonal_trend(times, data, remove_trend=True, by_difference=False, remove_sd=True)
+    removed_trend = utils.remove_seasonal_trend(times, data, remove_trend=True, by_difference=False, remove_sd=True)
     plt.plot(times, removed_trend, "xg", label=f"Data")
 
     for time, datum in zip(times, data):
         year = time.year
         decade = year // 10
-        update_totals(totals, decade, datum)
-        update_totals(years, decade, year)
+        utils.update_totals(totals, decade, datum)
+        utils.update_totals(years, decade, year)
     averages = annual_averaging(totals, [])
     years = annual_averaging(years, [])
 
     x, y = zip(*[(datetime.date(round(years[decade]), 1, 1), averages[decade]) for decade in averages.keys()])
-    removed_trend = remove_seasonal_trend(x, y, remove_trend=True, by_difference=False, remove_sd=True)
+    removed_trend = utils.remove_seasonal_trend(x, y, remove_trend=True, by_difference=False, remove_sd=True)
     plt.plot(x, removed_trend, "^b", label=f"Decadal Trend")
 
     plt.legend()
@@ -559,8 +504,8 @@ def chart_temperature_decade(inlet: inlets.Inlet):
         lambda inlet: inlet.get_temperature_data(inlets.Category.DEEP, do_average=True, before=END),
     )
     bounds = inlet.deep_bounds
-    plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Temperature - Decade Averages")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-temperature-decade.png"))
+    plt.title(f"{inlet.name} {utils.label_from_bounds(*bounds)} Temperature - Decade Averages")
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-temperature-decade.png"))
 
 
 def chart_salinity_decade(inlet: inlets.Inlet):
@@ -570,8 +515,8 @@ def chart_salinity_decade(inlet: inlets.Inlet):
         lambda inlet: inlet.get_salinity_data(inlets.Category.DEEP, do_average=True, before=END),
     )
     bounds = inlet.deep_bounds
-    plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Salinity - Decade Averages")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-salinity-decade.png"))
+    plt.title(f"{inlet.name} {utils.label_from_bounds(*bounds)} Salinity - Decade Averages")
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-salinity-decade.png"))
 
 
 def chart_oxygen_decade(inlet: inlets.Inlet):
@@ -581,8 +526,8 @@ def chart_oxygen_decade(inlet: inlets.Inlet):
         lambda inlet: inlet.get_oxygen_data(inlets.Category.DEEP, do_average=True, before=END),
     )
     bounds = inlet.deep_bounds
-    plt.title(f"{inlet.name} {label_from_bounds(*bounds)} Dissolved Oxygen - Decade Averages")
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-oxygen-decade.png"))
+    plt.title(f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Averages")
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade.png"))
 
 
 ###################
@@ -679,7 +624,7 @@ def chart_monthly_sample(inlet: inlets.Inlet):
     plt.title(f"{inlet.name} Sampling Frequency by Month")
     plt.axis("tight")
     plt.colorbar()
-    plt.savefig(figure_path(f"{normalize(inlet.name)}-monthly-sampling.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-monthly-sampling.png"))
     plt.close()
 
     # reset values
