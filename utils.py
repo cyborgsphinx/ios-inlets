@@ -28,7 +28,7 @@ def mean(data):
 
 def sd(data):
     u = mean(data)
-    return math.sqrt(sum(map(lambda x: (x - u) ** 2, data)) / len(data))
+    return math.sqrt(sum((x - u) ** 2 for x in data) / len(data))
 
 
 def index_by_month(dates):
@@ -75,18 +75,15 @@ class Trend(Enum):
 def remove_seasonal_trend(x, y, trend=Trend.NONE, remove_sd=True):
     to_process = list(y)
     if trend == Trend.DIFF:
-        to_process = list(map(lambda a, b: a - b, to_process[1:], to_process))
+        to_process = [a - b for a, b in zip(to_process[1:], to_process)]
     elif trend == Trend.LINEAR:
         domain = index_by_month(x)
         fit = Polynomial.fit(domain, to_process, 1)
         coeficients = fit.convert().coef
-        to_process = list(
-            map(
-                lambda a, b: a - (coeficients[0] + coeficients[1] * b),
-                to_process,
-                domain,
-            )
-        )
+        to_process = [
+            a - (coeficients[0] + coeficients[1] * b)
+            for a, b in zip(to_process, domain)
+        ]
     avg = mean(to_process)
     out = [x - avg for x in to_process]
     if remove_sd:
