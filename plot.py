@@ -4,7 +4,10 @@ import inlets
 import itertools
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy
+from numpy.polynomial import polynomial
 import os
+import scipy.optimize
 from typing import Dict, List
 import utils
 
@@ -534,6 +537,40 @@ def do_seasonal_frequency_work(inlet, data_fn):
     plt.legend()
 
 
+def do_seasonal_trend_comparison(inlet, data_fn):
+    plt.clf()
+    times, data = zip(*sorted(zip(*data_fn(inlet)), key=lambda x: x[0]))
+    plt.plot(times, data, "xk", label=f"Monthly Data")
+
+    indexed = utils.index_by_month(times)
+    even_spaced = []
+    even_times = []
+    years = [time.year for time in times]
+    for year in range(min(years), max(years) + 1):
+        even_spaced.extend([month + 1 + (12 * year - min(years)) for month in range(12)])
+        even_times.extend([datetime.date(year, month + 1, 1) for month in range(12)])
+
+    linear_fit = polynomial.Polynomial.fit(indexed, data, 1)
+    plt.plot(times, linear_fit(numpy.asarray(indexed)), label=f"Linear Fit")
+
+    mean = utils.mean(data)
+    fit_sin = lambda x, freq, amplitude, phase, offset: numpy.sin(x * freq + phase) * amplitude + offset
+    # period given in months
+    freq = lambda period: 1 / period
+    amp = (max(data) - min(data)) / 2
+
+    popt_sin12, _ = scipy.optimize.curve_fit(fit_sin, indexed, data, p0=[freq(12), amp, 1, mean])
+    plt.plot(even_times, [fit_sin(x, *popt_sin12) for x in even_spaced], label=f"12 Month Sine Fit")
+
+    popt_sin6, _ = scipy.optimize.curve_fit(fit_sin, indexed, data, p0=[freq(6), amp, 1, mean])
+    plt.plot(even_times, [fit_sin(x, *popt_sin6) for x in even_spaced], label=f"6 Month Sine Fit")
+
+    popt_sin3, _ = scipy.optimize.curve_fit(fit_sin, indexed, data, p0=[freq(3), amp, 1, mean])
+    plt.plot(even_times, [fit_sin(x, *popt_sin3) for x in even_spaced], label=f"3 Month Sine Fit")
+
+    plt.legend()
+
+
 def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
     print(f"Producing oxygen seasonal trend plots for {inlet.name}")
     bounds = inlet.deep_bounds
@@ -553,6 +590,13 @@ def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
     plt.ylabel("Number of Stations")
     plt.title(f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Stations")
     plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-stations.png"))
+
+    do_seasonal_trend_comparison(inlet, get_data)
+    plt.ylabel("Dissolved Oxygen (mL/L)")
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Trend Comparison"
+    )
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-comparison.png"))
 
 
 #############################
