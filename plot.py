@@ -507,6 +507,54 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet], use_limits: boo
     )
 
 
+##############################
+# Seasonal Averaging Functions
+##############################
+
+
+def do_seasonal_averages_work(inlet, data_fn):
+    plt.clf()
+    times, data = data_fn(inlet)
+    plt.plot([time.month for time in times], data, "xg", label=f"Monthly Data")
+    plt.xlim(0, 13)
+    plt.xticks(range(1,13), ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"])
+    plt.legend()
+
+
+def do_seasonal_frequency_work(inlet, data_fn):
+    plt.clf()
+    data = []
+    times, _ = data_fn(inlet)
+    for time in times:
+        data.append(time.month)
+    # bins defined to ensure that each month gets its own bin
+    plt.hist(data, bins=range(1,14), align="left", label=f"Number of data points {len(data)}")
+    plt.xlim(0, 13)
+    plt.xticks(range(1,13), ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"])
+    plt.legend()
+
+
+def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
+    print(f"Producing oxygen seasonal trend plots for {inlet.name}")
+    bounds = inlet.deep_bounds
+    get_data = lambda inlet: inlet.get_oxygen_data(
+        inlets.Category.DEEP, do_average=True, before=END
+    )
+    do_seasonal_averages_work(
+        inlet, get_data
+    )
+    plt.ylabel("Dissolved Oxygen (mL/L)")
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Trends"
+    )
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-trends.png"))
+
+    do_seasonal_frequency_work(inlet, get_data)
+    plt.ylabel("Number of Stations")
+    plt.title(f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Stations")
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-stations.png"))
+
+
 #############################
 # Decadal averaging functions
 #############################
@@ -918,6 +966,7 @@ def main():
             chart_temperature_decade(inlet)
             chart_salinity_decade(inlet)
             chart_oxygen_decade(inlet)
+            chart_oxygen_seasonal_trends(inlet)
     plt.close()
 
 

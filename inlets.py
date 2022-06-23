@@ -354,7 +354,7 @@ class Inlet(object):
     def has_data_from(self, file_name):
         return os.path.basename(file_name).lower() in self.used_files
 
-    def get_station_data(self, before=None):
+    def get_station_data(self, before=None, by_month=False):
         bounds = self.__bucket_to_bounds(Category.ALL)
         data = self.data.get_temperature_data(bounds)
         temperature_data = (
@@ -376,10 +376,13 @@ class Inlet(object):
         )
         stations = {}
         for datum in itertools.chain(temperature_data, salinity_data, oxygen_data):
-            year = datum.time.year
-            if year not in stations:
-                stations[year] = set()
-            stations[year].add(datum.source)
+            if by_month:
+                time = datum.time.month
+            else:
+                time = datum.time.year
+            if time not in stations:
+                stations[time] = set()
+            stations[time].add(datum.source)
         return stations
 
     def contains(self, latitude=None, longitude=None):
