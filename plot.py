@@ -537,18 +537,24 @@ def do_seasonal_frequency_work(inlet, data_fn):
     plt.legend()
 
 
-def do_seasonal_trend_comparison(inlet, data_fn):
+def do_seasonal_trend_comparison(inlet, data_fn, combine_years=False):
     plt.clf()
     times, data = zip(*sorted(zip(*data_fn(inlet)), key=lambda x: x[0]))
+    if combine_years:
+        times = [time.month for time in times]
     plt.plot(times, data, "xk", label=f"Monthly Data")
 
-    indexed = utils.index_by_month(times)
-    even_spaced = []
-    even_times = []
-    years = [time.year for time in times]
-    for year in range(min(years), max(years) + 1):
-        even_spaced.extend([month + 1 + (12 * year - min(years)) for month in range(12)])
-        even_times.extend([datetime.date(year, month + 1, 1) for month in range(12)])
+    if combine_years:
+        indexed = times
+        even_spaced = even_times = list(range(1, 13))
+    else:
+        indexed = utils.index_by_month(times)
+        even_spaced = []
+        even_times = []
+        years = [time.year for time in times]
+        for year in range(min(years), max(years) + 1):
+            even_spaced.extend([month + 1 + (12 * year - min(years)) for month in range(12)])
+            even_times.extend([datetime.date(year, month + 1, 1) for month in range(12)])
 
     linear_fit = polynomial.Polynomial.fit(indexed, data, 1)
     plt.plot(times, linear_fit(numpy.asarray(indexed)), label=f"Linear Fit")
@@ -567,6 +573,10 @@ def do_seasonal_trend_comparison(inlet, data_fn):
 
     popt_sin3, _ = scipy.optimize.curve_fit(fit_sin, indexed, data, p0=[freq(3), amp, 1, mean])
     plt.plot(even_times, [fit_sin(x, *popt_sin3) for x in even_spaced], label=f"3 Month Sine Fit")
+
+    if combine_years:
+        plt.xlim(0, 13)
+        plt.xticks(range(1,13), ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"])
 
     plt.legend()
 
