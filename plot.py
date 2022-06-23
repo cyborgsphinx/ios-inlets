@@ -520,11 +520,12 @@ def do_decadal_work(inlet, data_fn):
 
     # plot bare data along side decadal averages
     removed_trend = utils.remove_seasonal_trend(
-        times, data, utils.Trend.LINEAR, remove_sd=True
+        times, data, utils.Trend.NONE, remove_sd=False
     )
-    plt.plot(times, removed_trend, "xg", label=f"Data")
+    plt.plot(times, removed_trend, "xg", label=f"Monthly Data")
 
-    for time, datum in zip(times, data):
+    # plot trend of anomalies across decades
+    for time, datum in zip(times, removed_trend):
         year = time.year
         decade = year // 10
         utils.update_totals(totals, decade, datum)
@@ -538,10 +539,7 @@ def do_decadal_work(inlet, data_fn):
             for decade in averages.keys()
         ]
     )
-    removed_trend = utils.remove_seasonal_trend(
-        x, y, utils.Trend.LINEAR, remove_sd=True
-    )
-    plt.plot(x, removed_trend, "^b", label=f"Decadal Trend")
+    plt.plot(x, y, "^b", label=f"Decadal Averages")
 
     plt.legend()
 
