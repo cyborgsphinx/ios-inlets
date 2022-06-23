@@ -43,19 +43,19 @@ def date_from_float(num):
     # want 1-365 instead of 0-364
     day = math.trunc((num - year) * 365) + 1
     months = [
-        0, # padding
-        31, # January
-        28, # February
-        31, # March
-        30, # April
-        31, # May
-        30, # June
-        31, # July
-        31, # August
-        30, # September
-        31, # October
-        30, # November
-        31, # December
+        0,  # padding
+        31,  # January
+        28,  # February
+        31,  # March
+        30,  # April
+        31,  # May
+        30,  # June
+        31,  # July
+        31,  # August
+        30,  # September
+        31,  # October
+        30,  # November
+        31,  # December
     ]
     for m, d in enumerate(months):
         if day < d:

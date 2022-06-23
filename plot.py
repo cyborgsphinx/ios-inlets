@@ -515,12 +515,19 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet], use_limits: boo
 ##############################
 
 
+def apply_monthly_plot_formatting():
+    plt.xlim(0, 13)
+    plt.xticks(
+        range(1, 13),
+        ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"],
+    )
+
+
 def do_seasonal_averages_work(inlet, data_fn):
     plt.clf()
     times, data = data_fn(inlet)
     plt.plot([time.month for time in times], data, "xg", label=f"Monthly Data")
-    plt.xlim(0, 13)
-    plt.xticks(range(1,13), ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"])
+    apply_monthly_plot_formatting()
     plt.legend()
 
 
@@ -531,9 +538,13 @@ def do_seasonal_frequency_work(inlet, data_fn):
     for time in times:
         data.append(time.month)
     # bins defined to ensure that each month gets its own bin
-    plt.hist(data, bins=range(1,14), align="left", label=f"Number of data points {len(data)}")
-    plt.xlim(0, 13)
-    plt.xticks(range(1,13), ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"])
+    plt.hist(
+        data,
+        bins=range(1, 14),
+        align="left",
+        label=f"Number of data points {len(data)}",
+    )
+    apply_monthly_plot_formatting()
     plt.legend()
 
 
@@ -553,30 +564,54 @@ def do_seasonal_trend_comparison(inlet, data_fn, combine_years=False):
         even_times = []
         years = [time.year for time in times]
         for year in range(min(years), max(years) + 1):
-            even_spaced.extend([month + 1 + (12 * year - min(years)) for month in range(12)])
-            even_times.extend([datetime.date(year, month + 1, 1) for month in range(12)])
+            even_spaced.extend(
+                [month + 1 + (12 * year - min(years)) for month in range(12)]
+            )
+            even_times.extend(
+                [datetime.date(year, month + 1, 1) for month in range(12)]
+            )
 
     linear_fit = polynomial.Polynomial.fit(indexed, data, 1)
     plt.plot(times, linear_fit(numpy.asarray(indexed)), label=f"Linear Fit")
 
     mean = utils.mean(data)
-    fit_sin = lambda x, freq, amplitude, phase, offset: numpy.sin(x * freq + phase) * amplitude + offset
+
+    def fit_sin(x, freq, amplitude, phase, offset):
+        return numpy.sin(x * freq + phase) * amplitude + offset
+
     # period given in months
     freq = lambda period: 1 / period
     amp = (max(data) - min(data)) / 2
 
-    popt_sin12, _ = scipy.optimize.curve_fit(fit_sin, indexed, data, p0=[freq(12), amp, 1, mean])
-    plt.plot(even_times, [fit_sin(x, *popt_sin12) for x in even_spaced], label=f"12 Month Sine Fit")
+    popt_sin12, _ = scipy.optimize.curve_fit(
+        fit_sin, indexed, data, p0=[freq(12), amp, 1, mean]
+    )
+    plt.plot(
+        even_times,
+        [fit_sin(x, *popt_sin12) for x in even_spaced],
+        label=f"12 Month Sine Fit",
+    )
 
-    popt_sin6, _ = scipy.optimize.curve_fit(fit_sin, indexed, data, p0=[freq(6), amp, 1, mean])
-    plt.plot(even_times, [fit_sin(x, *popt_sin6) for x in even_spaced], label=f"6 Month Sine Fit")
+    popt_sin6, _ = scipy.optimize.curve_fit(
+        fit_sin, indexed, data, p0=[freq(6), amp, 1, mean]
+    )
+    plt.plot(
+        even_times,
+        [fit_sin(x, *popt_sin6) for x in even_spaced],
+        label=f"6 Month Sine Fit",
+    )
 
-    popt_sin3, _ = scipy.optimize.curve_fit(fit_sin, indexed, data, p0=[freq(3), amp, 1, mean])
-    plt.plot(even_times, [fit_sin(x, *popt_sin3) for x in even_spaced], label=f"3 Month Sine Fit")
+    popt_sin3, _ = scipy.optimize.curve_fit(
+        fit_sin, indexed, data, p0=[freq(3), amp, 1, mean]
+    )
+    plt.plot(
+        even_times,
+        [fit_sin(x, *popt_sin3) for x in even_spaced],
+        label=f"3 Month Sine Fit",
+    )
 
     if combine_years:
-        plt.xlim(0, 13)
-        plt.xticks(range(1,13), ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"])
+        apply_monthly_plot_formatting()
 
     plt.legend()
 
@@ -587,26 +622,32 @@ def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
     get_data = lambda inlet: inlet.get_oxygen_data(
         inlets.Category.DEEP, do_average=True, before=END
     )
-    do_seasonal_averages_work(
-        inlet, get_data
-    )
+    do_seasonal_averages_work(inlet, get_data)
     plt.ylabel("Dissolved Oxygen (mL/L)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Trends"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-trends.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-trends.png")
+    )
 
     do_seasonal_frequency_work(inlet, get_data)
     plt.ylabel("Number of Stations")
-    plt.title(f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Stations")
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-stations.png"))
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Stations"
+    )
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-stations.png")
+    )
 
     do_seasonal_trend_comparison(inlet, get_data)
     plt.ylabel("Dissolved Oxygen (mL/L)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Seasonal Trend Comparison"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-comparison.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-comparison.png")
+    )
 
 
 #############################
@@ -686,7 +727,9 @@ def chart_temperature_decade(inlet: inlets.Inlet):
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Temperature - Decade Averages"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-temperature-decade-averages.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-temperature-decade-averages.png")
+    )
     do_decadal_anomaly_work(
         inlet,
         lambda inlet: inlet.get_temperature_data(
@@ -697,7 +740,9 @@ def chart_temperature_decade(inlet: inlets.Inlet):
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Temperature - Decade Anomalies"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-temperature-decade-anomalies.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-temperature-decade-anomalies.png")
+    )
 
 
 def chart_salinity_decade(inlet: inlets.Inlet):
@@ -713,7 +758,9 @@ def chart_salinity_decade(inlet: inlets.Inlet):
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Salinity - Decade Averages"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-salinity-decade-averages.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-salinity-decade-averages.png")
+    )
     do_decadal_anomaly_work(
         inlet,
         lambda inlet: inlet.get_salinity_data(
@@ -724,7 +771,9 @@ def chart_salinity_decade(inlet: inlets.Inlet):
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Salinity - Decade Anomalies"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-salinity-decade-anomalies.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-salinity-decade-anomalies.png")
+    )
 
 
 def chart_oxygen_decade(inlet: inlets.Inlet):
@@ -740,7 +789,9 @@ def chart_oxygen_decade(inlet: inlets.Inlet):
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Averages"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-averages.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-averages.png")
+    )
     do_decadal_anomaly_work(
         inlet,
         lambda inlet: inlet.get_oxygen_data(
@@ -751,7 +802,9 @@ def chart_oxygen_decade(inlet: inlets.Inlet):
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Anomalies"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-anomalies.png"))
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-anomalies.png")
+    )
 
 
 ###################
