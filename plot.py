@@ -512,7 +512,31 @@ def chart_annual_oxygen_averages(inlet_list: List[inlets.Inlet], use_limits: boo
 #############################
 
 
-def do_decadal_work(inlet, data_fn):
+def compute_decadal_average(times, data):
+    totals = {}
+    for time, datum in zip(times, data):
+        year = time.year
+        utils.update_totals(totals, year, datum)
+    new_data = annual_averaging(totals, [])
+
+    totals = {}
+    years = {}
+    for year, datum in new_data.items():
+        decade = year // 10
+        utils.update_totals(totals, decade, datum)
+        utils.update_totals(years, decade, year)
+    averages = annual_averaging(totals, [])
+    years = annual_averaging(years, [])
+
+    return zip(
+        *[
+            (utils.date_from_float(years[decade]), averages[decade])
+            for decade in averages.keys()
+        ]
+    )
+
+
+def do_decadal_anomaly_work(inlet, data_fn):
     plt.clf()
     totals = {}
     years = {}
@@ -522,71 +546,104 @@ def do_decadal_work(inlet, data_fn):
     removed_trend = utils.remove_seasonal_trend(
         times, data, utils.Trend.NONE, remove_sd=False
     )
-    plt.plot(times, removed_trend, "xg", label=f"Monthly Data")
+    plt.plot(times, removed_trend, "xg", label=f"Monthly Anomalies")
 
     # plot trend of anomalies across decades
-    for time, datum in zip(times, removed_trend):
-        year = time.year
-        decade = year // 10
-        utils.update_totals(totals, decade, datum)
-        utils.update_totals(years, decade, year)
-    averages = annual_averaging(totals, [])
-    years = annual_averaging(years, [])
+    x, y = compute_decadal_average(times, removed_trend)
+    plt.plot(x, y, "^b", label=f"Decadal Anomalies")
 
-    x, y = zip(
-        *[
-            (utils.date_from_float(years[decade]), averages[decade])
-            for decade in averages.keys()
-        ]
-    )
+    plt.legend()
+
+
+def do_decadal_averages_work(inlet, data_fn):
+    plt.clf()
+    totals = {}
+    years = {}
+    times, data = data_fn(inlet)
+
+    # plot bare data along side decadal averages
+    plt.plot(times, data, "xg", label=f"Monthly Averages")
+
+    # plot trend of anomalies across decades
+    x, y = compute_decadal_average(times, data)
     plt.plot(x, y, "^b", label=f"Decadal Averages")
 
     plt.legend()
 
 
 def chart_temperature_decade(inlet: inlets.Inlet):
-    print(f"Producing temperature decade trend plot for {inlet.name}")
-    do_decadal_work(
+    print(f"Producing temperature decade trend plots for {inlet.name}")
+    bounds = inlet.deep_bounds
+    do_decadal_averages_work(
         inlet,
         lambda inlet: inlet.get_temperature_data(
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
-    bounds = inlet.deep_bounds
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Temperature - Decade Averages"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-temperature-decade.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-temperature-decade-averages.png"))
+    do_decadal_anomaly_work(
+        inlet,
+        lambda inlet: inlet.get_temperature_data(
+            inlets.Category.DEEP, do_average=True, before=END
+        ),
+    )
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Temperature - Decade Anomalies"
+    )
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-temperature-decade-anomalies.png"))
 
 
 def chart_salinity_decade(inlet: inlets.Inlet):
     print(f"Producing salinity decade trend plot for {inlet.name}")
-    do_decadal_work(
+    bounds = inlet.deep_bounds
+    do_decadal_averages_work(
         inlet,
         lambda inlet: inlet.get_salinity_data(
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
-    bounds = inlet.deep_bounds
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Salinity - Decade Averages"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-salinity-decade.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-salinity-decade-averages.png"))
+    do_decadal_anomaly_work(
+        inlet,
+        lambda inlet: inlet.get_salinity_data(
+            inlets.Category.DEEP, do_average=True, before=END
+        ),
+    )
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Salinity - Decade Anomalies"
+    )
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-salinity-decade-anomalies.png"))
 
 
 def chart_oxygen_decade(inlet: inlets.Inlet):
     print(f"Producing oxygen decade trend plot for {inlet.name}")
-    do_decadal_work(
+    bounds = inlet.deep_bounds
+    do_decadal_averages_work(
         inlet,
         lambda inlet: inlet.get_oxygen_data(
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
-    bounds = inlet.deep_bounds
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Averages"
     )
-    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade.png"))
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-averages.png"))
+    do_decadal_anomaly_work(
+        inlet,
+        lambda inlet: inlet.get_oxygen_data(
+            inlets.Category.DEEP, do_average=True, before=END
+        ),
+    )
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Anomalies"
+    )
+    plt.savefig(figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-anomalies.png"))
 
 
 ###################
