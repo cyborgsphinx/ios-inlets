@@ -580,6 +580,7 @@ def chart_temperature_decade(inlet: inlets.Inlet):
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
+    plt.ylabel("Temperature (C)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Temperature - Decade Averages"
     )
@@ -590,6 +591,7 @@ def chart_temperature_decade(inlet: inlets.Inlet):
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
+    plt.ylabel("Temperature (C)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Temperature - Decade Anomalies"
     )
@@ -605,6 +607,7 @@ def chart_salinity_decade(inlet: inlets.Inlet):
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
+    plt.ylabel("Salinity (PSU)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Salinity - Decade Averages"
     )
@@ -615,6 +618,7 @@ def chart_salinity_decade(inlet: inlets.Inlet):
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
+    plt.ylabel("Salinity (PSU)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Salinity - Decade Anomalies"
     )
@@ -630,6 +634,7 @@ def chart_oxygen_decade(inlet: inlets.Inlet):
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
+    plt.ylabel("Dissolved Oxygen (mL/L)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Averages"
     )
@@ -640,6 +645,7 @@ def chart_oxygen_decade(inlet: inlets.Inlet):
             inlets.Category.DEEP, do_average=True, before=END
         ),
     )
+    plt.ylabel("Dissolved Oxygen (mL/L)")
     plt.title(
         f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Anomalies"
     )
