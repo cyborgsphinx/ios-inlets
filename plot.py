@@ -616,6 +616,31 @@ def do_seasonal_trend_comparison(inlet, data_fn, combine_years=False):
     plt.legend()
 
 
+def do_salinity_oxygen_compare(inlet, salinity_fn, oxygen_fn):
+    plt.clf()
+    sal_times, sal_data = salinity_fn(inlet)
+    oxy_times, oxy_data = oxygen_fn(inlet)
+
+    for m, style, name in zip(
+        range(1, 13),
+        ["xg", "xm", "xb", "xk", "xr", "xc", "+g", "+m", "+b", "+k", "+r", "+c"],
+        ["JA", "FE", "MR", "AL", "MA", "JN", "JL", "AU", "SE", "OC", "NO", "DE"],
+    ):
+        data = list(zip(
+            *[
+                [s, o]
+                for s_t, s in zip(sal_times, sal_data) for o_t, o in zip(oxy_times, oxy_data)
+                if s_t == o_t and s_t.month == m
+            ]
+        ))
+        if len(data) < 2:
+            continue
+
+        plt.plot(*data, style, label=name)
+
+    plt.legend()
+
+
 def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
     print(f"Producing oxygen seasonal trend plots for {inlet.name}")
     bounds = inlet.deep_bounds
@@ -647,6 +672,20 @@ def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
     )
     plt.savefig(
         figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-comparison.png")
+    )
+
+    do_salinity_oxygen_compare(
+        inlet,
+        lambda inlet: inlet.get_salinity_data(inlets.Category.DEEP, do_average=True, before=END),
+        get_data,
+    )
+    plt.xlabel("Salinity (PSU)")
+    plt.ylabel("Dissolved Oxygen (mL/L)")
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Salinity Relationship"
+    )
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-salinity-relationship.png")
     )
 
 
