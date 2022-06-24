@@ -757,16 +757,26 @@ def compute_decadal_average(times, data):
     )
 
 
-def do_decadal_anomaly_work(inlet, data_fn):
+def do_decadal_anomaly_work(inlet, data_fn, use_seasons=False):
     plt.clf()
-    totals = {}
-    years = {}
     times, data = data_fn(inlet)
 
     # plot bare data along side decadal averages
-    removed_trend = utils.remove_seasonal_trend(
-        times, data, utils.Trend.NONE, remove_sd=False
-    )
+    if use_seasons:
+        means = {}
+        seasons = {}
+        for season, name in inlet.get_seasons():
+            seasons[name] = season
+            means[name] = utils.mean([datum for time, datum in zip(times, data) if time.month in season])
+        removed_trend = [
+            datum - means[name]
+            for time, datum in zip(times, data) for name in means.keys()
+            if time.month in seasons[name]
+        ]
+    else:
+        removed_trend = utils.remove_seasonal_trend(
+            times, data, utils.Trend.NONE, remove_sd=False
+        )
     plt.plot(times, removed_trend, "xg", label=f"Monthly Anomalies")
 
     # plot trend of anomalies across decades
@@ -778,8 +788,6 @@ def do_decadal_anomaly_work(inlet, data_fn):
 
 def do_decadal_averages_work(inlet, data_fn):
     plt.clf()
-    totals = {}
-    years = {}
     times, data = data_fn(inlet)
 
     # plot bare data along side decadal averages
@@ -882,6 +890,25 @@ def chart_oxygen_decade(inlet: inlets.Inlet):
     )
     plt.savefig(
         figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-anomalies.png")
+    )
+
+
+def chart_oxygen_decade_seasonal(inlet: inlets.Inlet):
+    print(f"Producing oxygen decade trend plot for {inlet.name} accounting for seasonality")
+    bounds = inlet.deep_bounds
+    do_decadal_anomaly_work(
+        inlet,
+        lambda inlet:inlet.get_oxygen_data(
+            inlets.Category.DEEP, do_average=True, before=END
+        ),
+        use_seasons=True,
+    )
+    plt.ylabel("Dissolved Oxygen (mL/L)")
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Decade Seasonal Anomalies"
+    )
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-decade-seasonal-anomalies.png")
     )
 
 
@@ -1152,6 +1179,7 @@ def main():
             chart_salinity_decade(inlet)
             chart_oxygen_decade(inlet)
             chart_oxygen_seasonal_trends(inlet)
+            chart_oxygen_decade_seasonal(inlet)
     plt.close()
 
 
