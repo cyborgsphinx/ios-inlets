@@ -641,12 +641,15 @@ def do_salinity_oxygen_compare(inlet, salinity_fn, oxygen_fn):
     plt.legend()
 
 
-def do_seasonal_salinity_oxygen_compare(inlet, salinity_fn, oxygen_fn, seasons):
+def do_seasonal_salinity_oxygen_compare(inlet, salinity_fn, oxygen_fn):
     plt.clf()
     sal_times, sal_data = salinity_fn(inlet)
     oxy_times, oxy_data = oxygen_fn(inlet)
 
-    for months, style, name in seasons:
+    for (months, name), style in zip(
+        inlet.get_seasons(),
+        ["xg", "xm", "xb", "xk", "xr", "xc", "+g", "+m", "+b", "+k", "+r", "+c"],
+    ):
         data = list(zip(
             *[
                 [s, o]
@@ -714,11 +717,6 @@ def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
         inlet,
         get_salinity,
         get_data,
-        zip(
-            [[1, 2, 3], [4, 5], [6, 7, 8, 9], [10, 11, 12]],
-            ["xr", "xb", "xg", "xk"],
-            ["JFM", "AM", "JJAS", "OND"],
-        )
     )
     plt.xlabel("Salinity (PSU)")
     plt.ylabel("Dissolved Oxygen (mL/L)")

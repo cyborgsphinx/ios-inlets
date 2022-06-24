@@ -266,6 +266,7 @@ class Inlet(object):
         clear_old_data: bool = False,
         db_name=None,
         shallow: List[int] = [0, 30, 100],
+        seasons: List[int] = [],
     ):
         self.name = name
         self.area = area
@@ -287,6 +288,7 @@ class Inlet(object):
             self.shallow_bounds = (shallow[1], shallow[2])
         else:
             self.shallow_bounds = None
+        self.seasons = seasons
 
     def __bucket_to_bounds(self, bucket: Category):
         return (
@@ -421,6 +423,15 @@ class Inlet(object):
 
     def is_deepest(self, depth):
         return is_in_bounds(depth, *self.deepest_bounds)
+
+    def get_seasons(self):
+        month_to_name = {
+            1: "J", 2: "F", 3: "M", 4: "A", 5: "M", 6: "J", 7: "J", 8: "A", 9: "S", 10: "O", 11: "N", 12: "D"
+        }
+        return zip(
+            self.seasons,
+            ["".join([month_to_name[month] for month in season]) for season in self.seasons],
+        )
 
     def produce_data(
         self,
@@ -957,6 +968,11 @@ def get_inlets(
                 continue
             area = content["properties"]["area"]
             boundaries = content["properties"]["boundaries"]
+            seasons = (
+                content["properties"]["seasons"]
+                if "seasons" in content["properties"]
+                else []
+            )
             limits = (
                 content["properties"]["limits"]
                 if "limits" in content["properties"]
@@ -973,6 +989,7 @@ def get_inlets(
                         limits,
                         clear_old_data=not from_saved,
                         shallow=content["properties"]["shallow boundaries"],
+                        seasons=seasons,
                     )
                 )
             else:
@@ -984,6 +1001,7 @@ def get_inlets(
                         boundaries,
                         limits,
                         clear_old_data=not from_saved,
+                        seasons=seasons,
                     )
                 )
     if not from_saved:
