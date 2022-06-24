@@ -641,6 +641,27 @@ def do_salinity_oxygen_compare(inlet, salinity_fn, oxygen_fn):
     plt.legend()
 
 
+def do_seasonal_salinity_oxygen_compare(inlet, salinity_fn, oxygen_fn, seasons):
+    plt.clf()
+    sal_times, sal_data = salinity_fn(inlet)
+    oxy_times, oxy_data = oxygen_fn(inlet)
+
+    for months, style, name in seasons:
+        data = list(zip(
+            *[
+                [s, o]
+                for s_t, s in zip(sal_times, sal_data) for o_t, o in zip(oxy_times, oxy_data)
+                if s_t == o_t and s_t.month in months
+            ]
+        ))
+        if len(data) < 2:
+            continue
+
+        plt.plot(*data, style, label=name)
+
+    plt.legend()
+
+
 def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
     print(f"Producing oxygen seasonal trend plots for {inlet.name}")
     bounds = inlet.deep_bounds
@@ -674,9 +695,10 @@ def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
         figure_path(f"{utils.normalize(inlet.name)}-oxygen-seasonal-comparison.png")
     )
 
+    get_salinity = lambda inlet: inlet.get_salinity_data(inlets.Category.DEEP, do_average=True, before=END)
     do_salinity_oxygen_compare(
         inlet,
-        lambda inlet: inlet.get_salinity_data(inlets.Category.DEEP, do_average=True, before=END),
+        get_salinity,
         get_data,
     )
     plt.xlabel("Salinity (PSU)")
@@ -686,6 +708,25 @@ def chart_oxygen_seasonal_trends(inlet: inlets.Inlet):
     )
     plt.savefig(
         figure_path(f"{utils.normalize(inlet.name)}-oxygen-salinity-relationship.png")
+    )
+
+    do_seasonal_salinity_oxygen_compare(
+        inlet,
+        get_salinity,
+        get_data,
+        zip(
+            [[1, 2, 3], [4, 5], [6, 7, 8, 9], [10, 11, 12]],
+            ["xr", "xb", "xg", "xk"],
+            ["JFM", "AM", "JJAS", "OND"],
+        )
+    )
+    plt.xlabel("Salinity (PSU)")
+    plt.ylabel("Dissolved Oxygen (mL/L)")
+    plt.title(
+        f"{inlet.name} {utils.label_from_bounds(*bounds)} Dissolved Oxygen - Salinity Relationship"
+    )
+    plt.savefig(
+        figure_path(f"{utils.normalize(inlet.name)}-oxygen-salinity-seasons.png")
     )
 
 
