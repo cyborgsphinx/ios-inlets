@@ -45,3 +45,19 @@ To get annual plots for all inlets, run
 
     $ poetry run plot -A
 
+## GeoJSON Properties
+
+When adding water bodies, certain property keys are picked up and added to the python object to influence its behaviour:
+
+- "name": Used as an identifier for the data, in plot titles, file names, sqlite tables, and for filtering.
+    Example: `"name": "Saanich Inlet"`
+- "area": Used to group inlets together for aggregate plots like the annual averages and annual anomalies charts.
+    Example: `"area": "Salish Sea"`
+- "boundaries": Used to define the three depth categories for the deep water plots.
+    Example: `"boundaries": "[250, 350, 450]"`
+- "shallow boundaries": Used to define the two depth categories for the shallow water plots, defaults to `[0, 30, 100]`.
+    Example: `"shallow boundaries": "[0, 30, 100]"`
+- "limits": Used to define view limits for T, S, O charts, broken out by "deep" and "shallow".
+    Example: `"limits": { "oxygen": { "deep": [0, 5], "shallow": [0, 4] } }`
+- "seasons": Used to define the seasons for seasonal trend removal charts. Expected to be the numbers `1..12` separated into a number of lists.
+    Example: `"seasons": [[1, 2, 3], [4, 5], [6, 7, 8, 9], [10, 11, 12]]`
