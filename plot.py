@@ -33,6 +33,12 @@ def ensure_figure_path():
         pass
 
 
+def bins(min_val, max_val):
+    # add 1 to cover matplotlib expecting e.g. [1,2),..,[11,12),[12,13],
+    # and 1 for range not including the last value
+    return range(min_val, max_val+2)
+
+
 ########################
 # Single inlet functions
 ########################
@@ -194,8 +200,7 @@ def chart_stations(
     data = []
     for year, stations in inlet.get_station_data(before=END).items():
         data.extend([year for _ in range(len(stations))])
-    n_bins = max(data) - min(data) + 1
-    plt.hist(data, bins=n_bins, align="left", label=f"Number of files {len(data)}")
+    plt.hist(data, bins=bins(min(data), max(data)), align="left", label=f"Number of files {len(data)}")
     plt.ylabel("Number of Stations")
     plt.legend()
     plt.title(f"{inlet.name} Sampling History")
@@ -537,10 +542,9 @@ def do_seasonal_frequency_work(inlet, data_fn):
     times, _ = data_fn(inlet)
     for time in times:
         data.append(time.month)
-    # bins defined to ensure that each month gets its own bin
     plt.hist(
         data,
-        bins=range(1, 14),
+        bins=bins(1, 12),
         align="left",
         label=f"Number of data points {len(data)}",
     )
