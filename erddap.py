@@ -7,6 +7,7 @@ from erddapy import ERDDAP
 import gsw
 import numpy
 import pandas
+import requests
 import urllib
 
 CHUNKSIZE = 100000
@@ -412,81 +413,84 @@ def find_variables_for(variable_data, server, dataset):
 
 def pull_data_for(inlet):
     for server in SERVERS:
-        server_url = f"{server}/erddap"
-        logging.info("Reading data from", server_url)
-        e = ERDDAP(server=server_url, protocol="tabledap")
-        parameters = inlet.bounding_box()
-        search_url = e.get_search_url(response="csv", **parameters)
         try:
-            results = pandas.read_csv(search_url)
-        except urllib.error.HTTPError as err:
-            if err.code in [500]:
-                logging.warning(f"{server_url} is unavailable for searching")
-                continue
-            else:
-                logging.error(f"{search_url} returned error {err.code}: {err.reason}")
-                raise err
-        for dataset in results["Dataset ID"].values:
-            info_url = e.get_info_url(dataset_id=dataset, response="csv")
+            server_url = f"{server}/erddap"
+            logging.info("Reading data from", server_url)
+            e = ERDDAP(server=server_url, protocol="tabledap")
+            parameters = inlet.bounding_box()
+            search_url = e.get_search_url(response="csv", **parameters)
             try:
-                info = pandas.read_csv(info_url)
+                results = pandas.read_csv(search_url)
             except urllib.error.HTTPError as err:
                 if err.code in [500]:
-                    logging.warning(
-                        f"{server_url} failed to retrieve info for {dataset}"
-                    )
+                    logging.warning(f"{server_url} is unavailable for searching")
                     continue
                 else:
-                    logging.error(f"{info_url} returned error {err.code}: {err.reason}")
+                    logging.error(f"{search_url} returned error {err.code}: {err.reason}")
                     raise err
-            logging.info(f"reading from {server_url}: {dataset}")
-            name_map = {}
+            for dataset in results["Dataset ID"].values:
+                info_url = e.get_info_url(dataset_id=dataset, response="csv")
+                try:
+                    info = pandas.read_csv(info_url)
+                except urllib.error.HTTPError as err:
+                    if err.code in [500]:
+                        logging.warning(
+                            f"{server_url} failed to retrieve info for {dataset}"
+                        )
+                        continue
+                    else:
+                        logging.error(f"{info_url} returned error {err.code}: {err.reason}")
+                        raise err
+                logging.info(f"reading from {server_url}: {dataset}")
+                name_map = {}
 
-            for name, variable in VARIABLES["required"].items():
-                name_map[name] = find_variables_for(variable, e, dataset)
-                logging.debug(f"{name}: {name_map[name]}")
-            if not all(
-                len(name_map[name]) > 0 for name in VARIABLES["required"].keys()
-            ):
-                logging.info(
-                    f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}"
-                )
-                continue
-
-            for name, variable in VARIABLES["optional"].items():
-                name_map[name] = find_variables_for(variable, e, dataset)
-                logging.debug(f"{name}: {name_map[name]}")
-            if not any(
-                len(name_map[name]) > 0 for name in VARIABLES["optional"].keys()
-            ):
-                logging.info(
-                    f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}"
-                )
-                continue
-
-            for name, variable in VARIABLES["extra"].items():
-                name_map[name] = find_variables_for(variable, e, dataset)
-                logging.debug(f"{name}: {name_map[name]}")
-
-            usable_variables = [item for value in name_map.values() for item in value]
-            dl = e.get_download_url(
-                dataset_id=dataset,
-                variables=usable_variables,
-                response="csv",
-                constraints=search_to_download(parameters),
-            )
-            base, query = dl.split("?")
-            dl = "?".join((base, urllib.parse.quote(query)))
-            try:
-                units = pandas.read_csv(dl, nrows=1)
-                with pandas.read_csv(dl, chunksize=CHUNKSIZE, skiprows=(1,)) as reader:
-                    for chunk in reader:
-                        yield process_data(chunk, name_map, units, dataset)
-            except urllib.error.HTTPError as err:
-                if err.code in [404]:
+                for name, variable in VARIABLES["required"].items():
+                    name_map[name] = find_variables_for(variable, e, dataset)
+                    logging.debug(f"{name}: {name_map[name]}")
+                if not all(
+                    len(name_map[name]) > 0 for name in VARIABLES["required"].keys()
+                ):
                     logging.info(
-                        f"{dataset} turned up in advanced search despite not having data from {inlet.name}"
+                        f"Missing critical information for {inlet.name} in {dataset} {VARIABLES['required'].keys()}"
                     )
-                else:
-                    logging.error(f"{dl} returned error {err.code}: {err.reason}")
-                    raise err
+                    continue
+
+                for name, variable in VARIABLES["optional"].items():
+                    name_map[name] = find_variables_for(variable, e, dataset)
+                    logging.debug(f"{name}: {name_map[name]}")
+                if not any(
+                    len(name_map[name]) > 0 for name in VARIABLES["optional"].keys()
+                ):
+                    logging.info(
+                        f"No relevant data for {inlet.name} in {dataset} {VARIABLES['optional'].keys()}"
+                    )
+                    continue
+
+                for name, variable in VARIABLES["extra"].items():
+                    name_map[name] = find_variables_for(variable, e, dataset)
+                    logging.debug(f"{name}: {name_map[name]}")
+
+                usable_variables = [item for value in name_map.values() for item in value]
+                dl = e.get_download_url(
+                    dataset_id=dataset,
+                    variables=usable_variables,
+                    response="csv",
+                    constraints=search_to_download(parameters),
+                )
+                base, query = dl.split("?")
+                dl = "?".join((base, urllib.parse.quote(query)))
+                try:
+                    units = pandas.read_csv(dl, nrows=1)
+                    with pandas.read_csv(dl, chunksize=CHUNKSIZE, skiprows=(1,)) as reader:
+                        for chunk in reader:
+                            yield process_data(chunk, name_map, units, dataset)
+                except urllib.error.HTTPError as err:
+                    if err.code in [404]:
+                        logging.info(
+                            f"{dataset} turned up in advanced search despite not having data from {inlet.name}"
+                        )
+                    else:
+                        logging.error(f"{dl} returned error {err.code}: {err.reason}")
+                        raise err
+        except requests.exceptions.ConnectionError as err:
+            logging.error(f"Issue contacting {server}: {err}")
